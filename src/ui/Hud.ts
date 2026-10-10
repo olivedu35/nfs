@@ -17,6 +17,8 @@ export interface HudState {
   score: number;
   policeHits: number;
   policeHitsMax: number;
+  damage: number;
+  damageMax: number;
 }
 
 /** HUD en DOM (aucun texte rendu dans WebGL). N'écrit dans le DOM que si une valeur change. */
@@ -48,6 +50,7 @@ export class Hud {
         <div class="speed"><span data-k="speed">0</span><small>KM/H</small></div>
         <div class="bar nitro-bar"><i data-k="nitro"></i><b>NITRO</b></div>
         <div class="bar heat-bar"><i data-k="heat"></i><b data-k="heatlabel">HEAT</b></div>
+        <div class="bar dmg-bar"><span class="segs" data-k="dmg"></span><b>DÉGÂTS</b></div>
       </div>
       <div class="msg" data-k="msg"></div>
       <div class="toast" data-k="toast"></div>`;
@@ -56,6 +59,7 @@ export class Hud {
       this.el[e.dataset.k!] = e;
     });
     this.mapSlot = this.el.map as HTMLDivElement;
+    this.el.dmg.innerHTML = '<i></i>'.repeat(5);
     this.pauseBtn = this.root.querySelector('.pause')!;
   }
 
@@ -87,6 +91,13 @@ export class Hud {
   update(s: HudState, dt: number): void {
     this.set('speed', String(Math.round(s.speedKmh)));
     this.set('score', s.score.toLocaleString('fr-FR'));
+    const dmgKey = `${s.damage}/${s.damageMax}`;
+    if (this.cache.dmg !== dmgKey) {
+      this.cache.dmg = dmgKey;
+      const segs = this.el.dmg.children;
+      for (let i = 0; i < segs.length; i++) segs[i].classList.toggle('on', i < s.damage);
+      this.el.dmg.parentElement!.classList.toggle('critical', s.damage >= s.damageMax - 1);
+    }
     this.set('pos', String(s.position));
     this.set('total', String(s.total));
     this.set('lap', String(Math.min(s.laps, Math.max(1, s.lap))));

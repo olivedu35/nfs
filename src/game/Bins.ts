@@ -40,6 +40,8 @@ interface Bin {
   knocked: boolean;
   resting: boolean;
   timer: number;
+  /** déplacée par l'aimant (sans avoir été percutée) */
+  pulled: boolean;
 }
 
 interface Debris {
@@ -78,7 +80,7 @@ export class Bins {
         this.bins.push({
           hx: x, hz: z, hh: rand() * Math.PI * 2,
           x, y: HALF_H, z, vx: 0, vy: 0, vz: 0, rx: 0, rz: 0, wx: 0, wz: 0, ry: 0,
-          knocked: false, resting: true, timer: 0,
+          knocked: false, resting: true, timer: 0, pulled: false,
         });
       }
     }
@@ -127,6 +129,39 @@ export class Bins {
     b.ry = b.hh;
     b.knocked = false;
     b.resting = true;
+    b.pulled = false;
+  }
+
+  private time = 0;
+
+  /**
+   * Aimant à poubelles : les poubelles debout dans le rayon glissent vers la voiture
+   * (vers sa position un peu anticipée) en sautillant. Renvoie le nombre de poubelles attirées.
+   */
+  attract(px: number, pz: number, vx: number, vz: number, h: number, radius: number, pull: number, dt: number): number {
+    if (radius <= 0) return 0;
+    this.time += dt;
+    const fx = Math.sin(h), fz = Math.cos(h);
+    const tx = px + vx * 0.15, tz = pz + vz * 0.15;
+    let n = 0;
+    for (const b of this.bins) {
+      if (b.knocked) continue;
+      // pas les poubelles déjà loin derrière
+      if ((b.x - px) * fx + (b.z - pz) * fz < -3) continue;
+      const dx = tx - b.x, dz = tz - b.z;
+      const d = Math.hypot(dx, dz);
+      if (d > radius || d < 0.3) continue;
+      // plus elle est proche, plus elle file vite
+      const step = Math.min(d, pull * (1.5 - d / radius) * dt);
+      b.x += (dx / d) * step;
+      b.z += (dz / d) * step;
+      b.y = HALF_H + Math.abs(Math.sin(this.time * 18 + b.hh * 5)) * 0.35;
+      b.ry += 6 * dt;
+      b.pulled = true;
+      this.dirty = true;
+      n++;
+    }
+    return n;
   }
 
   /**
@@ -179,7 +214,20 @@ export class Bins {
 
   update(dt: number, px: number, pz: number): void {
     for (const b of this.bins) {
-      if (!b.knocked) continue;
+      if (!b.knocked) {
+        // une poubelle attirée mais pas touchée retourne à sa place une fois hors de vue
+        if (b.pulled) {
+          const ex = b.x - px, ez = b.z - pz;
+          if (ex * ex + ez * ez > 80 * 80) {
+            this.restore(b);
+            this.dirty = true;
+          } else if (b.y > HALF_H) {
+            b.y = Math.max(HALF_H, b.y - 3 * dt);
+            this.dirty = true;
+          }
+        }
+        continue;
+      }
       b.timer += dt;
       if (!b.resting) {
         this.dirty = true;

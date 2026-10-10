@@ -6,7 +6,7 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
-import { AI, BINS, CARS, CarSpec, NITRO, PHYSICS, POLICE, RENDER, TRACK, TRAFFIC, UPGRADE_FX } from '../config';
+import { AI, BINS, CARS, CarSpec, DAMAGE, NITRO, PHYSICS, POLICE, RENDER, TRACK, TRAFFIC, UPGRADE_FX } from '../config';
 import { Sound, vibrate } from '../audio/Sound';
 import { GyroControls } from '../input/GyroControls';
 import { TouchControls } from '../input/TouchControls';
@@ -71,6 +71,20 @@ export class Game {
   private nitroChargeMul = 1;
   private magnetReach = 0;
   private magnetPoints = 1;
+  private magnetRadius = 0;
+  private magnetPull = 0;
+  private magnetToast = 0;
+  /** accrochages depuis la dernière réapparition */
+  private damage = 0;
+  private damageCooldown = 0;
+  /** > 0 : la voiture est une épave, elle réapparaît à 0 */
+  private respawnTimer = 0;
+  /** > 0 : invulnérable (traverse les véhicules) après une réapparition */
+  private ghost = 0;
+  private respawns = 0;
+  /** dernier véhicule ayant causé un accrochage (un même véhicule ne compte qu'une fois par 1,5 s) */
+  private lastDamageBody: RailBody | null = null;
+  private lastDamageTime = -99;
 
   state: GameState = 'idle';
   paused = false;
@@ -219,6 +233,8 @@ export class Game {
     this.nitroChargeMul = UPGRADE_FX.nitroCharge(lv('nitro'));
     this.magnetReach = UPGRADE_FX.magnetReach(lv('magnet'));
     this.magnetPoints = UPGRADE_FX.magnetPoints(lv('magnet'));
+    this.magnetRadius = UPGRADE_FX.magnetRadius(lv('magnet'));
+    this.magnetPull = UPGRADE_FX.magnetPull(lv('magnet'));
     this.scene.remove(this.player.mesh);
     this.player = new Car(spec);
     this.player.nitroDrainMul = UPGRADE_FX.nitroDrain(lv('nitro'));
@@ -234,6 +250,11 @@ export class Game {
     this.combo = 0;
     this.lastBinHit = -99;
     this.wrecks = 0;
+    this.damage = 0;
+    this.damageCooldown = 0;
+    this.respawnTimer = 0;
+    this.ghost = 0;
+    this.respawns = 0;
     this.banked = false;
     this.lap = -1;
     this.prevS = this.player.proj.s;
@@ -355,9 +376,19 @@ export class Game {
       this.raceTime += racing ? dt : 0;
     }
 
+    // État de la voiture
+    if (this.damageCooldown > 0) this.damageCooldown -= dt;
+    if (this.ghost > 0) this.ghost -= dt;
+    if (this.respawnTimer > 0) {
+      this.respawnTimer -= dt;
+      if (this.respawnTimer <= 0) this.respawn();
+    }
+
     // Joueur
     const input: DriveInput =
-      this.state === 'race'
+      this.respawnTimer > 0
+        ? { throttle: 0, brake: 1, steer: 0, nitro: false, analog: false, noReverse: true }
+        : this.state === 'race'
         ? this.readInput()
         : this.state === 'countdown'
           ? { throttle: 0, brake: 1, steer: 0, nitro: false, analog: false, noReverse: true }
@@ -410,8 +441,8 @@ export class Game {
 
     this.traffic.update(dt);
 
-    // Police
-    if (racing) {
+    // Police (en pause pendant une réapparition : pas de BUSTED injuste)
+    if (racing && this.respawnTimer <= 0) {
       const ev = this.police.update(dt, {
         progress: playerProgress,
         s,
@@ -467,7 +498,10 @@ export class Game {
     for (const c of this.traffic.cars) bodies.push({ b: c, kind: 'traffic' });
     if (this.police.active) bodies.push({ b: this.police, kind: 'police' });
 
+    // fantôme après réapparition (ou épave) : on traverse les véhicules
+    const solid = this.ghost <= 0 && this.respawnTimer <= 0;
     for (const { b, kind } of bodies) {
+      if (!solid) break;
       const dx = p.x - b.x, dz = p.z - b.z;
       if (dx * dx + dz * dz > 49) {
         if (kind === 'traffic') {
@@ -519,6 +553,13 @@ export class Game {
       p.vz -= nz * rel * 1.25;
       const impact = -rel;
       const along = -(nx * fx + nz * fz); // >0 si le joueur pousse par l'arrière
+      // Dégâts : trafic et IA uniquement (la police ne compte pas)
+      if (racing && kind !== 'police' && impact > DAMAGE.minImpact) {
+        // « de front » : le choc repousse la voiture vers l'arrière (c'est son avant qui a tapé)
+        const frontal = nx * Math.sin(p.h) + nz * Math.cos(p.h) < -DAMAGE.headOnDot;
+        if (kind === 'traffic' && frontal && hitSpeed >= DAMAGE.headOnSpeed) this.wreck(true);
+        else this.addDamage(b);
+      }
       if (kind === 'traffic') {
         const c = b as TrafficCar;
         c.nearMissArmed = false;
@@ -528,7 +569,6 @@ export class Game {
           c.speed = Math.max(4, c.speed * 0.5);
           c.lane = clamp(c.lane + dLane * 3, -TRACK.halfWidth + 1.2, TRACK.halfWidth - 1.2);
           c.laneVel = dLane * 20;
-          this.hud.toast('CRASH !', '#ff2d55');
         }
       } else if (kind === 'ai') {
         (b as AIDriver).nudge(dLane, along > 0.5 ? impact * 0.3 : -impact * 0.2);
@@ -561,6 +601,48 @@ export class Game {
     }
   }
 
+  private addDamage(body: RailBody): void {
+    if (this.damageCooldown > 0 || this.respawnTimer > 0) return;
+    if (body === this.lastDamageBody && this.raceTime - this.lastDamageTime < 1.5) return;
+    this.lastDamageBody = body;
+    this.lastDamageTime = this.raceTime;
+    this.damageCooldown = DAMAGE.cooldown;
+    this.damage++;
+    if (this.damage >= DAMAGE.maxHits) this.wreck(false);
+    else this.hud.toast(`ACCROCHAGE ${this.damage}/${DAMAGE.maxHits}`, this.damage >= DAMAGE.maxHits - 1 ? '#ff2d55' : '#ffb02d');
+  }
+
+  /** Voiture détruite : courte séquence d'épave puis réapparition. */
+  private wreck(headOn: boolean): void {
+    if (this.respawnTimer > 0) return;
+    this.damage = DAMAGE.maxHits;
+    this.respawnTimer = DAMAGE.respawnDelay;
+    this.respawns++;
+    this.hud.message(headOn ? 'CHOC FRONTAL !' : 'VOITURE HS !', DAMAGE.respawnDelay, '#ff2d55');
+    this.camera.shake(1);
+    this.sound.crash(1);
+    vibrate([150, 60, 250]);
+  }
+
+  /** Réapparition au même endroit du circuit, au milieu de la route, relancée et invulnérable. */
+  private respawn(): void {
+    const p = this.player;
+    const t = this.track.sampleAt(p.proj.s, this.tmpSample);
+    p.x = t.x;
+    p.z = t.z;
+    p.h = Math.atan2(t.tx, t.tz);
+    p.vx = t.tx * DAMAGE.respawnSpeed;
+    p.vz = t.tz * DAMAGE.respawnSpeed;
+    p.steer = 0;
+    this.track.project(p.x, p.z, p.proj.index, p.proj);
+    this.prevS = p.proj.s; // même abscisse : aucun faux passage de ligne
+    this.damage = 0;
+    this.damageCooldown = 0;
+    this.ghost = DAMAGE.ghostTime;
+    this.camera.snap(p.x, p.z, p.h);
+    this.hud.toast('VOITURE RÉPARÉE !', '#3dff7a', 1.5);
+  }
+
   /** Coup de bélier sur la police : au bout de 3 coups à ≥ 50 km/h, elle est détruite. */
   private ramPolice(hitSpeed: number): void {
     const r = this.police.ram(hitSpeed);
@@ -587,6 +669,14 @@ export class Game {
     const p = this.player;
     for (const ai of this.ais) this.bins.collide(ai.x, ai.z, ai.h, ai.vx, ai.vz);
     if (this.police.active) this.bins.collide(this.police.x, this.police.z, this.police.h, this.police.vx, this.police.vz);
+    if (this.state !== 'countdown') {
+      const pulled = this.bins.attract(p.x, p.z, p.vx, p.vz, p.h, this.magnetRadius, this.magnetPull, dt);
+      this.magnetToast = Math.max(0, this.magnetToast - dt);
+      if (pulled > 0 && racing && this.magnetToast === 0) {
+        this.hud.toast('AIMANT ACTIF !', '#7dff6a');
+        this.magnetToast = 4;
+      }
+    }
     const hits = this.state === 'countdown' ? 0 : this.bins.collide(p.x, p.z, p.h, p.vx, p.vz, this.magnetReach);
     this.bins.update(dt, p.x, p.z);
     if (hits === 0) return;
@@ -679,6 +769,12 @@ export class Game {
     const p = this.player;
     const L = this.track.length;
     p.syncMesh();
+    // clignote pendant l'invulnérabilité, tremble pendant l'épave
+    p.mesh.visible = this.ghost > 0 ? Math.floor(this.ghost * 12) % 2 === 0 : true;
+    if (this.respawnTimer > 0) {
+      p.mesh.rotation.z = Math.sin(this.respawnTimer * 40) * 0.06;
+      p.mesh.rotation.x = -0.05;
+    }
     for (const ai of this.ais) ai.syncMesh();
     this.traffic.sync();
     this.bins.sync();
@@ -731,6 +827,8 @@ export class Game {
         score: this.score,
         policeHits: this.police.hits,
         policeHitsMax: POLICE.ramHits,
+        damage: this.damage,
+        damageMax: DAMAGE.maxHits,
       },
       dt,
     );

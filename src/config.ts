@@ -116,6 +116,18 @@ export const RENDER = {
   sky: 0x0b0d1a,
 };
 
+/** État de la voiture : accrochages avant destruction et réapparition. */
+export const DAMAGE = {
+  maxHits: 5, // accrochages (trafic + IA, pas la police) avant destruction
+  minImpact: 3, // vitesse d'impact (m/s) minimale pour compter un accrochage
+  cooldown: 0.6, // s : un même choc prolongé ne compte qu'une fois
+  headOnSpeed: 150 / 3.6, // choc frontal contre le trafic au-delà → destruction immédiate
+  headOnDot: 0.6, // seuil « de front » (cosinus entre l'avant de la voiture et le choc)
+  respawnDelay: 1.3, // s d'épave avant réapparition
+  ghostTime: 2, // s d'invulnérabilité après réapparition
+  respawnSpeed: 12, // m/s de relance (~45 km/h)
+};
+
 export const BINS = {
   spacing: 26, // m entre deux groupes de poubelles
   lateralMin: 6.4, // hors des files de l'IA et du trafic, côté trottoir
@@ -144,7 +156,7 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'turbo', name: 'TURBO', desc: '+15 % accélération / niv.' },
   { id: 'tires', name: 'PNEUS', desc: '+7 % maniabilité et adhérence / niv.' },
   { id: 'nitro', name: 'NITRO', desc: 'dure +20 %, recharge +25 % / niv.' },
-  { id: 'magnet', name: 'AIMANT À POUBELLES', desc: 'zone de choc +0,5 m, +25 % de points / niv.' },
+  { id: 'magnet', name: 'AIMANT À POUBELLES', desc: 'attire les poubelles (portée 13 → 21 m), +25 % de points / niv.' },
 ];
 
 /** Effet d'un niveau d'amélioration (0..5). */
@@ -154,6 +166,10 @@ export const UPGRADE_FX = {
   tires: (l: number) => 1 + 0.07 * l,
   nitroDrain: (l: number) => 1 / (1 + 0.2 * l),
   nitroCharge: (l: number) => 1 + 0.25 * l,
-  magnetReach: (l: number) => 0.5 * l,
+  magnetReach: (l: number) => 0.3 * l, // zone de choc élargie
+  /** rayon d'attraction (m) : 0 sans l'amélioration, 13 m au niv. 1, 21 m au niv. 5 */
+  magnetRadius: (l: number) => (l > 0 ? 11 + 2 * l : 0),
+  /** vitesse max (m/s) à laquelle une poubelle glisse vers la voiture */
+  magnetPull: (l: number) => 16 + 3.5 * l,
   magnetPoints: (l: number) => 1 + 0.25 * l,
 };

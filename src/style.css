@@ -900,6 +900,36 @@ button.track-card:active {
   background: linear-gradient(90deg, #ffb02d, var(--accent));
 }
 
+.dmg-bar .segs {
+  position: absolute;
+  inset: 1px;
+  display: flex;
+  gap: 2px;
+}
+
+.dmg-bar .segs i {
+  flex: 1;
+  height: 100%;
+  border-radius: 3px;
+  background: rgba(61, 255, 122, 0.25);
+  transition: background 0.15s;
+}
+
+.dmg-bar .segs i.on {
+  background: #ffb02d;
+}
+
+.dmg-bar.critical .segs i.on {
+  background: #ff2d55;
+  animation: crit 0.5s steps(2) infinite;
+}
+
+@keyframes crit {
+  50% {
+    opacity: 0.4;
+  }
+}
+
 .heat-bar i.pursuit {
   background: repeating-linear-gradient(90deg, #ff1030 0 12px, #1050ff 12px 24px);
 }
