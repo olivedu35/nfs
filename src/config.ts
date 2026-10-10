@@ -91,6 +91,12 @@ export const POLICE = {
   bustTime: 3,
   escapeDist: 260,
   escapeTime: 5,
+  // Police cassable : N coups à vitesse ≥ ramSpeed la mettent KO
+  ramHits: 3,
+  ramSpeed: 50 / 3.6, // m/s (50 km/h)
+  ramCooldown: 0.5, // s entre deux coups comptés
+  wreckBonus: 5000, // points (monnaie) pour une voiture de police détruite
+  wreckDespawn: 10, // s avant que l'épave disparaisse
 };
 
 export const CAMERA = {
@@ -114,9 +120,40 @@ export const BINS = {
   spacing: 26, // m entre deux groupes de poubelles
   lateralMin: 6.4, // hors des files de l'IA et du trafic, côté trottoir
   lateralMax: 8.6,
-  points: 100,
+  points: 1000, // ×10 : c'est la monnaie de la boutique
   comboWindow: 2.5, // s pour enchaîner un combo
   maxCombo: 5,
   respawnTime: 8, // s avant réapparition (hors de vue)
   carSlow: 0.97, // facteur de vitesse par poubelle percutée
+};
+
+// ---------------------------------------------------------------- boutique
+export type UpgradeId = 'engine' | 'turbo' | 'tires' | 'nitro' | 'magnet';
+
+export interface UpgradeDef {
+  id: UpgradeId;
+  name: string;
+  desc: string;
+}
+
+/** Progression volontairement ridicule : une poubelle (1000 pts) ≈ un niveau au début. */
+export const UPGRADE_COSTS = [1000, 1500, 2500, 4000, 6000];
+
+export const UPGRADES: UpgradeDef[] = [
+  { id: 'engine', name: 'MOTEUR', desc: '+6 % vitesse max / niv.' },
+  { id: 'turbo', name: 'TURBO', desc: '+15 % accélération / niv.' },
+  { id: 'tires', name: 'PNEUS', desc: '+7 % maniabilité et adhérence / niv.' },
+  { id: 'nitro', name: 'NITRO', desc: 'dure +20 %, recharge +25 % / niv.' },
+  { id: 'magnet', name: 'AIMANT À POUBELLES', desc: 'zone de choc +0,5 m, +25 % de points / niv.' },
+];
+
+/** Effet d'un niveau d'amélioration (0..5). */
+export const UPGRADE_FX = {
+  engine: (l: number) => 1 + 0.06 * l,
+  turbo: (l: number) => 1 + 0.15 * l,
+  tires: (l: number) => 1 + 0.07 * l,
+  nitroDrain: (l: number) => 1 / (1 + 0.2 * l),
+  nitroCharge: (l: number) => 1 + 0.25 * l,
+  magnetReach: (l: number) => 0.5 * l,
+  magnetPoints: (l: number) => 1 + 0.25 * l,
 };

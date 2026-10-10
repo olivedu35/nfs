@@ -28,6 +28,8 @@ export class Car {
   steer = 0;
   nitro = NITRO.start;
   nitroActive = false;
+  /** multiplicateur de consommation de nitro (amélioration NITRO) */
+  nitroDrainMul = 1;
   drifting = false;
   /** intensité du dernier choc contre un mur (lue puis remise à 0 par le jeu) */
   wallImpact = 0;
@@ -78,7 +80,7 @@ export class Car {
 
     // Nitro
     this.nitroActive = input.nitro && this.nitro > 0.01 && fwd > 5;
-    if (this.nitroActive) this.nitro = Math.max(0, this.nitro - NITRO.drain * dt);
+    if (this.nitroActive) this.nitro = Math.max(0, this.nitro - NITRO.drain * this.nitroDrainMul * dt);
     const maxV = spec.maxSpeed * (this.nitroActive ? NITRO.boostSpeed : 1);
 
     // Drift : frein + braquage à haute vitesse = adhérence réduite

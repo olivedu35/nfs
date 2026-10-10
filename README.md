@@ -36,8 +36,9 @@ vercel --prod        # ou : connecter le dépôt GitHub dans le dashboard Vercel
 - **Gyroscope** (à activer dans le garage) : inclinez le téléphone comme un volant. Sur iOS, le bouton « GYROSCOPE » déclenche la demande d'autorisation. Une option « Inverser gyro » corrige le sens si besoin.
 - **Drift** : FREIN + direction à haute vitesse → la voiture glisse et recharge la nitro.
 - **Nitro** : se recharge en drift et en frôlant le trafic (« NEAR MISS »).
-- **Poubelles** : disséminées sur les bas-côtés. Percutez-les pour marquer 100 points, avec un combo jusqu'à ×5 si vous les enchaînez en moins de 2,5 s. Ça ne sert à rien, mais le record est sauvegardé.
-- **Police** : au-dessus d'environ 150 km/h, la jauge HEAT monte. Pleine, une voiture de police vous prend en chasse. Si elle vous immobilise pendant 3 s : BUSTED. Distancez-la de 260 m pendant 5 s pour la semer.
+- **Poubelles** : disséminées sur les bas-côtés. Chacune rapporte 1 000 points, avec un combo jusqu'à ×5 si vous les enchaînez en moins de 2,5 s. Ces points servent de monnaie.
+- **Boutique** (depuis le garage ou l'écran de fin) : 5 améliorations à 5 niveaux (MOTEUR, TURBO, PNEUS, NITRO, AIMANT À POUBELLES). Elles coûtent de 1 000 à 6 000 points, donc environ une poubelle par niveau au début : la progression est volontairement ridicule de facilité. 5 000 points sont offerts au départ. Les points d'une course sont versés au portefeuille même en cas de BUSTED ou d'abandon.
+- **Police** : au-dessus d'environ 150 km/h, la jauge HEAT monte. Pleine, une voiture de police vous prend en chasse. Si elle vous immobilise pendant 3 s : BUSTED. Distancez-la de 260 m pendant 5 s pour la semer. Vous pouvez aussi la détruire : percutez-la 3 fois à 50 km/h ou plus. Vous gagnez alors 5 000 points, la nitro est remplie et la heat est remise à zéro.
 
 ## Architecture
 

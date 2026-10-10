@@ -264,6 +264,134 @@ button.big {
   font-size: 0.8rem;
 }
 
+/* ---------------------------------------------------------------- boutique */
+.shop-btn {
+  background: rgba(125, 255, 106, 0.15);
+  border-color: #7dff6a;
+  color: #7dff6a;
+}
+
+.shop {
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.shop h2 {
+  font-size: 1.6rem;
+}
+
+.shop-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+}
+
+.shop-head button {
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+.wallet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #7dff6a;
+  font-weight: 900;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: min(100%, 620px);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.upg {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 4px 3px 12px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.07);
+  text-align: left;
+}
+
+.upg.bought {
+  animation: bought 0.5s ease-out;
+}
+
+@keyframes bought {
+  from {
+    background: rgba(125, 255, 106, 0.6);
+  }
+}
+
+.upg-txt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.upg-txt b {
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+.upg-txt small {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.pips {
+  display: flex;
+  gap: 4px;
+}
+
+.pips i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  transform: skewX(-12deg);
+}
+
+.pips i.on {
+  background: #7dff6a;
+  box-shadow: 0 0 8px rgba(125, 255, 106, 0.7);
+}
+
+.buy {
+  min-width: 92px;
+  min-height: 40px;
+  padding: 4px 10px;
+  background: #7dff6a;
+  border-color: #7dff6a;
+  color: #000;
+  font-variant-numeric: tabular-nums;
+}
+
+.buy:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.upg.maxed .buy {
+  color: var(--gold);
+}
+
+.earn {
+  color: #7dff6a;
+  font-weight: 800;
+}
+
 /* ---------------------------------------------------------------- résultats / pause */
 .pause-screen h2,
 .results h2 {

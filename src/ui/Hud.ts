@@ -15,6 +15,8 @@ export interface HudState {
   pursuit: boolean;
   bust: number;
   score: number;
+  policeHits: number;
+  policeHitsMax: number;
 }
 
 /** HUD en DOM (aucun texte rendu dans WebGL). N'écrit dans le DOM que si une valeur change. */
@@ -84,7 +86,7 @@ export class Hud {
 
   update(s: HudState, dt: number): void {
     this.set('speed', String(Math.round(s.speedKmh)));
-    this.set('score', String(s.score));
+    this.set('score', s.score.toLocaleString('fr-FR'));
     this.set('pos', String(s.position));
     this.set('total', String(s.total));
     this.set('lap', String(Math.min(s.laps, Math.max(1, s.lap))));
@@ -95,7 +97,10 @@ export class Hud {
     this.style('nitro', 'width', `${Math.round(s.nitro * 100)}%`);
     this.cls('nitro', 'active', s.nitroActive);
     if (s.pursuit) {
-      this.set('heatlabel', s.bust > 0.05 ? 'BLOQUÉ !' : 'POURSUITE');
+      this.set(
+        'heatlabel',
+        s.bust > 0.05 ? 'BLOQUÉ !' : `POURSUITE · COUPS ${s.policeHits}/${s.policeHitsMax}`,
+      );
       this.style('heat', 'width', `${Math.round(Math.max(s.bust, 0.02) * 100)}%`);
     } else {
       this.set('heatlabel', 'HEAT');

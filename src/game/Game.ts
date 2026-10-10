@@ -6,7 +6,7 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
-import { AI, BINS, CARS, NITRO, PHYSICS, POLICE, RENDER, TRACK, TRAFFIC } from '../config';
+import { AI, BINS, CARS, CarSpec, NITRO, PHYSICS, POLICE, RENDER, TRACK, TRAFFIC, UPGRADE_FX } from '../config';
 import { Sound, vibrate } from '../audio/Sound';
 import { GyroControls } from '../input/GyroControls';
 import { TouchControls } from '../input/TouchControls';
@@ -36,6 +36,8 @@ export interface RaceResult {
   bins: number;
   score: number;
   scoreRecord: boolean;
+  wrecks: number;
+  wallet: number;
 }
 
 const COUNTDOWN = 3;
@@ -61,6 +63,11 @@ export class Game {
   private binCount = 0;
   private combo = 0;
   private lastBinHit = -99;
+  private wrecks = 0;
+  private banked = true;
+  private nitroChargeMul = 1;
+  private magnetReach = 0;
+  private magnetPoints = 1;
 
   state: GameState = 'idle';
   paused = false;
@@ -160,9 +167,22 @@ export class Game {
   }
 
   startRace(carIndex: number): void {
-    const spec = CARS[carIndex] ?? CARS[0];
+    this.bankScore(); // course précédente abandonnée : les points restent acquis
+    const base = CARS[carIndex] ?? CARS[0];
+    const lv = (id: Parameters<typeof Save.level>[0]): number => Save.level(id);
+    const spec: CarSpec = {
+      ...base,
+      maxSpeed: base.maxSpeed * UPGRADE_FX.engine(lv('engine')),
+      accel: base.accel * UPGRADE_FX.turbo(lv('turbo')),
+      handling: base.handling * UPGRADE_FX.tires(lv('tires')),
+      grip: base.grip * UPGRADE_FX.tires(lv('tires')),
+    };
+    this.nitroChargeMul = UPGRADE_FX.nitroCharge(lv('nitro'));
+    this.magnetReach = UPGRADE_FX.magnetReach(lv('magnet'));
+    this.magnetPoints = UPGRADE_FX.magnetPoints(lv('magnet'));
     this.scene.remove(this.player.mesh);
     this.player = new Car(spec);
+    this.player.nitroDrainMul = UPGRADE_FX.nitroDrain(lv('nitro'));
     this.scene.add(this.player.mesh);
     this.applySettings(Save.settings);
     this.setupGrid();
@@ -174,6 +194,8 @@ export class Game {
     this.binCount = 0;
     this.combo = 0;
     this.lastBinHit = -99;
+    this.wrecks = 0;
+    this.banked = false;
     this.lap = -1;
     this.prevS = this.player.proj.s;
     this.raceTime = 0;
@@ -195,7 +217,15 @@ export class Game {
     this.hud.clearMessage();
   }
 
+  /** Verse le score de la course dans le portefeuille (une seule fois par course). */
+  private bankScore(): void {
+    if (this.banked) return;
+    this.banked = true;
+    Save.deposit(this.score);
+  }
+
   quitToTitle(): void {
+    this.bankScore();
     this.state = 'idle';
     this.paused = false;
     this.hud.show(false);
@@ -322,7 +352,7 @@ export class Game {
 
     // Drift → nitro
     if (racing && player.drifting) {
-      player.nitro = Math.min(1, player.nitro + NITRO.driftCharge * dt);
+      player.nitro = Math.min(1, player.nitro + NITRO.driftCharge * this.nitroChargeMul * dt);
     }
 
     // IA
@@ -353,6 +383,7 @@ export class Game {
       });
       if (ev === 'spawn') {
         this.hud.message('POLICE !', 1.5, '#ff2d55');
+        this.hud.toast(`PERCUTEZ-LA ${POLICE.ramHits} FOIS À 50 KM/H+ POUR LA CASSER`, '#ffb02d');
         vibrate([60, 40, 60]);
       } else if (ev === 'escaped') {
         this.hud.message('SEMÉE !', 1.5, '#3dff7a');
@@ -360,6 +391,9 @@ export class Game {
       } else if (ev === 'busted') {
         this.bust();
       }
+    } else if (this.police.active && this.police.wrecked) {
+      // l'épave continue de glisser et de fumer après l'arrivée
+      this.police.update(dt, { progress: playerProgress, s, lateral: 0, speed: 0, x: player.x, z: player.z, lap: this.lap });
     }
 
     this.collisions(dt, racing);
@@ -416,7 +450,7 @@ export class Game {
           const rel = p.speed - c.speed;
           if (c.nearMissArmed && Math.abs(lf) < 2.5 && Math.abs(ll) < NITRO.nearMissDist && rel > NITRO.nearMissMinRel) {
             c.nearMissArmed = false;
-            p.nitro = Math.min(1, p.nitro + NITRO.nearMissCharge);
+            p.nitro = Math.min(1, p.nitro + NITRO.nearMissCharge * this.nitroChargeMul);
             this.hud.toast('NEAR MISS +NITRO', '#2de2ff');
             this.sound.whoosh();
           }
@@ -432,6 +466,7 @@ export class Game {
         const sg = Math.sign(lf) || 1;
         nx = fx * sg; nz = fz * sg; pen = penF;
       }
+      const hitSpeed = p.speed; // vitesse du joueur au moment du choc
       // séparation
       p.x += nx * pen * 0.8;
       p.z += nz * pen * 0.8;
@@ -459,6 +494,7 @@ export class Game {
         (b as AIDriver).nudge(dLane, along > 0.5 ? impact * 0.3 : -impact * 0.2);
       } else {
         this.police.nudge(dLane * 0.5, along > 0.5 ? impact * 0.2 : -impact * 0.1);
+        if (racing) this.ramPolice(hitSpeed);
       }
       if (impact > 3) {
         const k = clamp(impact / 25, 0, 1);
@@ -485,12 +521,33 @@ export class Game {
     }
   }
 
+  /** Coup de bélier sur la police : au bout de 3 coups à ≥ 50 km/h, elle est détruite. */
+  private ramPolice(hitSpeed: number): void {
+    const r = this.police.ram(hitSpeed);
+    if (r === 'hit') {
+      const left = POLICE.ramHits - this.police.hits;
+      this.hud.toast(`COUP SUR LA POLICE ${this.police.hits}/${POLICE.ramHits} — ENCORE ${left} !`, '#ffb02d');
+      this.camera.shake(0.35);
+      vibrate(60);
+    } else if (r === 'wreck') {
+      this.wrecks++;
+      this.score += POLICE.wreckBonus;
+      this.hud.message('POLICE DÉTRUITE !', 2, '#ffb02d');
+      this.hud.toast(`VOITURE DE POLICE KO +${POLICE.wreckBonus}`, '#7dff6a');
+      this.hud.bumpScore();
+      this.player.nitro = 1;
+      this.camera.shake(0.8);
+      this.sound.crash(1);
+      vibrate([80, 40, 160]);
+    }
+  }
+
   /** Poubelles : la voiture du joueur marque des points, l'IA les renverse gratuitement. */
   private hitBins(dt: number, racing: boolean): void {
     const p = this.player;
     for (const ai of this.ais) this.bins.collide(ai.x, ai.z, ai.h, ai.vx, ai.vz);
     if (this.police.active) this.bins.collide(this.police.x, this.police.z, this.police.h, this.police.vx, this.police.vz);
-    const hits = this.state === 'countdown' ? 0 : this.bins.collide(p.x, p.z, p.h, p.vx, p.vz);
+    const hits = this.state === 'countdown' ? 0 : this.bins.collide(p.x, p.z, p.h, p.vx, p.vz, this.magnetReach);
     this.bins.update(dt, p.x, p.z);
     if (hits === 0) return;
     for (let k = 0; k < hits; k++) {
@@ -500,7 +557,7 @@ export class Game {
       this.combo = now - this.lastBinHit < BINS.comboWindow ? Math.min(BINS.maxCombo, this.combo + 1) : 1;
       this.lastBinHit = now;
       if (!racing) continue; // après l'arrivée : ça vole toujours, mais ça ne compte plus
-      const pts = BINS.points * this.combo;
+      const pts = Math.round((BINS.points * this.magnetPoints * this.combo) / 10) * 10;
       this.score += pts;
       this.binCount++;
       this.hud.toast(this.combo > 1 ? `POUBELLE ! +${pts} ×${this.combo}` : `POUBELLE ! +${pts}`, '#7dff6a');
@@ -560,6 +617,7 @@ export class Game {
     });
     const record = busted ? { race: false, lap: false } : Save.submit(playerTime, this.bestLap);
     const scoreRecord = Save.submitScore(this.score);
+    this.bankScore();
     return {
       busted,
       position: busted ? 0 : rows.findIndex((r) => r.player) + 1,
@@ -570,6 +628,8 @@ export class Game {
       bins: this.binCount,
       score: this.score,
       scoreRecord,
+      wrecks: this.wrecks,
+      wallet: Save.wallet,
     };
   }
 
@@ -596,7 +656,7 @@ export class Game {
     const input = this.state === 'race' ? this.readInput() : null;
     this.sound.engine(Math.min(1, p.speed / (p.spec.maxSpeed * NITRO.boostSpeed)), input ? input.throttle : 0, true);
     const pd = this.police.active ? Math.hypot(this.police.x - p.x, this.police.z - p.z) : 999;
-    this.sound.siren(this.police.active, clamp(1 - pd / 150, 0, 1), dt);
+    this.sound.siren(this.police.active && !this.police.wrecked, clamp(1 - pd / 150, 0, 1), dt);
 
     // Classement en direct
     const playerProgress = this.lap * L + p.proj.s;
@@ -624,9 +684,11 @@ export class Game {
         nitro: p.nitro,
         nitroActive: p.nitroActive,
         heat: this.police.heat,
-        pursuit: this.police.active,
+        pursuit: this.police.active && !this.police.wrecked,
         bust: this.police.bustTimer / POLICE.bustTime,
         score: this.score,
+        policeHits: this.police.hits,
+        policeHitsMax: POLICE.ramHits,
       },
       dt,
     );
@@ -637,7 +699,7 @@ export class Game {
     for (const c of this.traffic.cars) dots.push({ x: c.x, z: c.z, color: '#777', size: 2 });
     this.ais.forEach((ai, i) => dots.push({ x: ai.x, z: ai.z, color: hex(AI.colors[i]), size: 3.5 }));
     if (this.police.active) {
-      dots.push({ x: this.police.x, z: this.police.z, color: Math.floor(performance.now() / 150) % 2 ? '#f00' : '#04f', size: 4 });
+      dots.push({ x: this.police.x, z: this.police.z, color: this.police.wrecked ? '#555' : Math.floor(performance.now() / 150) % 2 ? '#f00' : '#04f', size: 4 });
     }
     dots.push({ x: p.x, z: p.z, color: hex(p.spec.color), size: 5 });
     this.minimap.draw(dots);

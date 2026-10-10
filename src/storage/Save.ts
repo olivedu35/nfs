@@ -1,3 +1,5 @@
+import { UPGRADE_COSTS, UpgradeId } from '../config';
+
 export type ControlMode = 'buttons' | 'gyro';
 
 export interface Settings {
@@ -11,6 +13,8 @@ interface SaveData {
   bestRace: number | null;
   bestLap: number | null;
   bestScore: number;
+  wallet: number;
+  upgrades: Record<UpgradeId, number>;
   settings: Settings;
 }
 
@@ -19,6 +23,8 @@ const DEFAULTS: SaveData = {
   bestRace: null,
   bestLap: null,
   bestScore: 0,
+  wallet: 5000, // cadeau de bienvenue : de quoi acheter 3 améliorations tout de suite
+  upgrades: { engine: 0, turbo: 0, tires: 0, nitro: 0, magnet: 0 },
   settings: { control: 'buttons', sound: true, gyroInvert: false, car: 0 },
 };
 
@@ -31,6 +37,8 @@ function load(): SaveData {
       bestRace: d.bestRace ?? null,
       bestLap: d.bestLap ?? null,
       bestScore: d.bestScore ?? 0,
+      wallet: d.wallet ?? DEFAULTS.wallet,
+      upgrades: { ...DEFAULTS.upgrades, ...(d.upgrades ?? {}) },
       settings: { ...DEFAULTS.settings, ...(d.settings ?? {}) },
     };
   } catch {
@@ -66,6 +74,31 @@ export const Save = {
   submitScore(score: number): boolean {
     if (score <= data.bestScore) return false;
     data.bestScore = score;
+    persist();
+    return true;
+  },
+  get wallet(): number {
+    return data.wallet;
+  },
+  /** Ajoute les points gagnés en course au portefeuille. */
+  deposit(points: number): void {
+    if (points <= 0) return;
+    data.wallet += points;
+    persist();
+  },
+  level(id: UpgradeId): number {
+    return data.upgrades[id];
+  },
+  /** Coût du prochain niveau, ou null si déjà au max. */
+  nextCost(id: UpgradeId): number | null {
+    const l = data.upgrades[id];
+    return l < UPGRADE_COSTS.length ? UPGRADE_COSTS[l] : null;
+  },
+  buy(id: UpgradeId): boolean {
+    const cost = this.nextCost(id);
+    if (cost === null || data.wallet < cost) return false;
+    data.wallet -= cost;
+    data.upgrades[id]++;
     persist();
     return true;
   },

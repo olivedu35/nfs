@@ -124,7 +124,7 @@ export class Bins {
    * Teste une voiture (boîte orientée) contre les poubelles debout.
    * Renvoie le nombre de poubelles percutées à ce pas.
    */
-  collide(x: number, z: number, h: number, vx: number, vz: number): number {
+  collide(x: number, z: number, h: number, vx: number, vz: number, reach = 0): number {
     const fx = Math.sin(h), fz = Math.cos(h);
     const rx = -fz, rz = fx;
     const speed = Math.hypot(vx, vz);
@@ -132,10 +132,11 @@ export class Bins {
     for (const b of this.bins) {
       if (b.knocked) continue;
       const dx = b.x - x, dz = b.z - z;
-      if (dx * dx + dz * dz > 12) continue;
+      const far = 3.5 + reach;
+      if (dx * dx + dz * dz > far * far) continue;
       const lf = dx * fx + dz * fz;
       const ll = dx * rx + dz * rz;
-      if (Math.abs(lf) > 2.1 + RADIUS || Math.abs(ll) > 0.95 + RADIUS) continue;
+      if (Math.abs(lf) > 2.1 + RADIUS + reach || Math.abs(ll) > 0.95 + RADIUS + reach) continue;
       if (speed < 2) continue; // il faut un minimum d'élan
       hits++;
       b.knocked = true;

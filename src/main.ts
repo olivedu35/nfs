@@ -1,6 +1,6 @@
 import './style.css';
 import { registerSW } from 'virtual:pwa-register';
-import { CARS } from './config';
+import { CARS, UPGRADES, UPGRADE_COSTS, UpgradeId } from './config';
 import { Game, RaceResult } from './game/Game';
 import { GyroControls } from './input/GyroControls';
 import { Save, formatTime } from './storage/Save';
@@ -38,6 +38,8 @@ function isMobile(): boolean {
   const iPadOs = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
   return (coarse && navigator.maxTouchPoints > 0) || mobileUa || iPadOs;
 }
+
+const fmt = (n: number): string => Math.round(n).toLocaleString('fr-FR');
 
 function h(html: string): HTMLDivElement {
   const d = document.createElement('div');
@@ -87,7 +89,10 @@ function boot(): void {
         <button class="toggle" data-set="invert"></button>
         <div class="records"></div>
       </div>
-      <button class="big go">COURSE ▶</button>
+      <div class="row">
+        <button class="shop-btn">BOUTIQUE · <span class="wallet-n"></span> PTS</button>
+        <button class="big go">COURSE ▶</button>
+      </div>
       <div class="note" hidden></div>
     </div>`);
   ui.appendChild(garage);
@@ -119,8 +124,9 @@ function boot(): void {
     const inv = garage.querySelector('[data-set="invert"]') as HTMLElement;
     inv.textContent = `INVERSER GYRO : ${s.gyroInvert ? 'OUI' : 'NON'}`;
     inv.hidden = s.control !== 'gyro';
+    (garage.querySelector('.wallet-n') as HTMLElement).textContent = fmt(Save.wallet);
     (garage.querySelector('.records') as HTMLElement).innerHTML =
-      `RECORD COURSE <b>${formatTime(Save.bestRace)}</b><br>MEILLEUR TOUR <b>${formatTime(Save.bestLap)}</b><br>RECORD POUBELLES <b>${Save.bestScore}</b>`;
+      `RECORD COURSE <b>${formatTime(Save.bestRace)}</b><br>MEILLEUR TOUR <b>${formatTime(Save.bestLap)}</b><br>RECORD POUBELLES <b>${fmt(Save.bestScore)}</b>`;
     game.applySettings(s);
   };
 
@@ -159,6 +165,57 @@ function boot(): void {
     refreshGarage();
   });
 
+  // Boutique
+  const shop = h(`<div class="screen overlay shop" hidden>
+      <div class="shop-head"><button data-a="back">◀ GARAGE</button><h2>BOUTIQUE</h2><div class="wallet"></div></div>
+      <div class="shop-list"></div>
+    </div>`);
+  ui.appendChild(shop);
+  const shopList = shop.querySelector('.shop-list') as HTMLDivElement;
+  for (const u of UPGRADES) {
+    shopList.appendChild(
+      h(`<div class="upg" data-id="${u.id}">
+        <div class="upg-txt"><b>${u.name}</b><small>${u.desc}</small></div>
+        <div class="pips">${UPGRADE_COSTS.map(() => '<i></i>').join('')}</div>
+        <button class="buy" data-buy="${u.id}"></button>
+      </div>`),
+    );
+  }
+  const refreshShop = (): void => {
+    (shop.querySelector('.wallet') as HTMLElement).innerHTML = `<span class="bin-ico"></span>${fmt(Save.wallet)} PTS`;
+    shopList.querySelectorAll<HTMLElement>('.upg').forEach((row) => {
+      const id = row.dataset.id as UpgradeId;
+      const lvl = Save.level(id);
+      row.querySelectorAll('.pips i').forEach((p, i) => p.classList.toggle('on', i < lvl));
+      const btn = row.querySelector('.buy') as HTMLButtonElement;
+      const cost = Save.nextCost(id);
+      btn.textContent = cost === null ? 'MAX' : fmt(cost);
+      btn.disabled = cost === null || Save.wallet < cost;
+      row.classList.toggle('maxed', cost === null);
+    });
+  };
+  shopList.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-buy]');
+    if (!btn || btn.disabled) return;
+    if (!Save.buy(btn.dataset.buy as UpgradeId)) return;
+    game.sound.unlock();
+    game.sound.clang(3);
+    const row = btn.closest('.upg') as HTMLElement;
+    row.classList.remove('bought');
+    void row.offsetWidth;
+    row.classList.add('bought');
+    refreshShop();
+  });
+  shop.querySelector('[data-a="back"]')!.addEventListener('click', () => {
+    refreshGarage();
+    show(garage);
+  });
+  const openShop = (): void => {
+    refreshShop();
+    show(shop);
+  };
+  garage.querySelector('.shop-btn')!.addEventListener('click', openShop);
+
   // Pause
   const pause = h(`<div class="screen overlay pause-screen" hidden>
       <h2>PAUSE</h2>
@@ -175,13 +232,14 @@ function boot(): void {
       <div class="res-info"></div>
       <div class="row">
         <button class="big" data-a="replay">REJOUER</button>
+        <button class="shop-btn" data-a="shop">BOUTIQUE</button>
         <button data-a="menu">GARAGE</button>
       </div>
     </div>`);
   ui.appendChild(results);
 
   const show = (el: HTMLElement | null): void => {
-    for (const s of [title, garage, pause, results]) s.hidden = s !== el;
+    for (const s of [title, garage, shop, pause, results]) s.hidden = s !== el;
   };
 
   let unlocked = false;
@@ -244,7 +302,10 @@ function boot(): void {
   results.addEventListener('click', (e) => {
     const a = (e.target as HTMLElement).closest<HTMLElement>('[data-a]')?.dataset.a;
     if (a === 'replay') start();
-    else if (a === 'menu') {
+    else if (a === 'shop') {
+      game.quitToTitle();
+      openShop();
+    } else if (a === 'menu') {
       game.quitToTitle();
       refreshGarage();
       show(garage);
@@ -265,9 +326,12 @@ function boot(): void {
         </tr>`,
       )
       .join('');
-    const binsLine = `<br>POUBELLES <b>${r.bins}</b> · SCORE <b>${r.score}</b>${r.scoreRecord ? ' <em>RECORD !</em>' : ''}`;
+    const binsLine =
+      `<br>POUBELLES <b>${r.bins}</b>${r.wrecks ? ` · POLICES DÉTRUITES <b>${r.wrecks}</b>` : ''}` +
+      ` · SCORE <b>${fmt(r.score)}</b>${r.scoreRecord ? ' <em>RECORD !</em>' : ''}` +
+      `<br><span class="earn">+${fmt(r.score)} PTS → PORTEFEUILLE ${fmt(r.wallet)} PTS</span>`;
     (results.querySelector('.res-info') as HTMLElement).innerHTML = r.busted
-      ? `La police vous a coincé. Roulez moins vite… ou semez-les à la nitro !${binsLine}`
+      ? `La police vous a coincé. Astuce : percutez-la 3 fois à 50 km/h ou plus pour la détruire !${binsLine}`
       : `TEMPS <b>${formatTime(r.time)}</b>${r.record.race ? ' <em>NOUVEAU RECORD !</em>' : ''}<br>
          MEILLEUR TOUR <b>${formatTime(r.bestLap)}</b>${r.record.lap ? ' <em>RECORD !</em>' : ''}<br>
          RECORD COURSE <b>${formatTime(Save.bestRace)}</b>${binsLine}`;
