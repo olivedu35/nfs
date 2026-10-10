@@ -1,0 +1,125 @@
+import {
+  AdditiveBlending,
+  BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  CylinderGeometry,
+  DoubleSide,
+  Group,
+  InstancedMesh,
+  Mesh,
+  MeshBasicMaterial,
+  MeshLambertMaterial,
+} from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+
+/** Applique une couleur de sommet uniforme et retire les UV (inutiles, pas de textures). */
+function tint(g: BufferGeometry, c: number | [number, number, number]): BufferGeometry {
+  g.deleteAttribute('uv');
+  const ng = g.index ? g.toNonIndexed() : g;
+  const col = typeof c === 'number' ? new Color(c) : new Color(c[0], c[1], c[2]);
+  const n = ng.getAttribute('position').count;
+  const arr = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) arr.set([col.r, col.g, col.b], i * 3);
+  ng.setAttribute('color', new BufferAttribute(arr, 3));
+  return ng;
+}
+
+const WHITE = 0xffffff; // multiplié par la couleur de la voiture
+const GLASS = 0x1a1f2a;
+const TYRE = 0x111111;
+
+function buildBody(): BufferGeometry {
+  const parts: BufferGeometry[] = [
+    tint(new BoxGeometry(1.9, 0.5, 4.2).translate(0, 0.55, 0), WHITE),
+    tint(new BoxGeometry(1.86, 0.18, 1.2).translate(0, 0.86, 1.4), WHITE), // capot
+    tint(new BoxGeometry(1.62, 0.46, 1.9).translate(0, 1.03, -0.3), GLASS),
+    tint(new BoxGeometry(1.56, 0.07, 1.6).translate(0, 1.29, -0.35), WHITE), // toit
+    tint(new BoxGeometry(1.84, 0.07, 0.42).translate(0, 1.08, -1.95), WHITE), // aileron
+    tint(new BoxGeometry(0.08, 0.26, 0.2).translate(0.6, 0.9, -1.95), TYRE),
+    tint(new BoxGeometry(0.08, 0.26, 0.2).translate(-0.6, 0.9, -1.95), TYRE),
+  ];
+  for (const x of [-0.92, 0.92]) {
+    for (const z of [-1.35, 1.35]) {
+      parts.push(tint(new CylinderGeometry(0.36, 0.36, 0.3, 10).rotateZ(Math.PI / 2).translate(x, 0.36, z), TYRE));
+    }
+  }
+  return mergeGeometries(parts);
+}
+
+function buildLights(): BufferGeometry {
+  return mergeGeometries([
+    tint(new BoxGeometry(0.42, 0.14, 0.06).translate(0.6, 0.62, 2.11), 0xfff4c8),
+    tint(new BoxGeometry(0.42, 0.14, 0.06).translate(-0.6, 0.62, 2.11), 0xfff4c8),
+    tint(new BoxGeometry(0.55, 0.12, 0.06).translate(0.58, 0.68, -2.11), 0xff1030),
+    tint(new BoxGeometry(0.55, 0.12, 0.06).translate(-0.58, 0.68, -2.11), 0xff1030),
+  ]);
+}
+
+/** Faisceau des phares au sol : trapèze en dégradé, rendu en additif. */
+function buildBeam(): BufferGeometry {
+  const g = new BufferGeometry();
+  const y = 0.06;
+  const pos = new Float32Array([
+    -0.8, y, 2.2, 0.8, y, 2.2, -4, y, 16, 0.8, y, 2.2, 4, y, 16, -4, y, 16,
+  ]);
+  const a = 0.32, b = 0;
+  const col = new Float32Array([
+    a, a * 0.95, a * 0.8, a, a * 0.95, a * 0.8, b, b, b,
+    a, a * 0.95, a * 0.8, b, b, b, b, b, b,
+  ]);
+  g.setAttribute('position', new BufferAttribute(pos, 3));
+  g.setAttribute('color', new BufferAttribute(col, 3));
+  return g;
+}
+
+export const CarGeo = {
+  body: buildBody(),
+  lights: buildLights(),
+  beam: buildBeam(),
+};
+
+export const lightMat = new MeshBasicMaterial({ vertexColors: true });
+export const beamMat = new MeshBasicMaterial({
+  vertexColors: true,
+  transparent: true,
+  blending: AdditiveBlending,
+  depthWrite: false,
+  side: DoubleSide,
+});
+
+export function createCarMesh(color: number): Group {
+  const g = new Group();
+  g.add(new Mesh(CarGeo.body, new MeshLambertMaterial({ color, vertexColors: true })));
+  g.add(new Mesh(CarGeo.lights, lightMat));
+  g.add(new Mesh(CarGeo.beam, beamMat));
+  return g;
+}
+
+/** Ensemble instancié (trafic) : 3 draw calls quel que soit le nombre de voitures. */
+export function createCarInstances(count: number): {
+  body: InstancedMesh;
+  lights: InstancedMesh;
+  beam: InstancedMesh;
+} {
+  const body = new InstancedMesh(CarGeo.body, new MeshLambertMaterial({ vertexColors: true }), count);
+  const lights = new InstancedMesh(CarGeo.lights, lightMat, count);
+  const beam = new InstancedMesh(CarGeo.beam, beamMat, count);
+  for (const m of [body, lights, beam]) m.frustumCulled = false;
+  return { body, lights, beam };
+}
+
+/** Gyrophare de police : deux blocs dont la couleur alterne. */
+export function createSirenLights(): { group: Group; red: MeshBasicMaterial; blue: MeshBasicMaterial } {
+  const red = new MeshBasicMaterial({ color: 0xff0000 });
+  const blue = new MeshBasicMaterial({ color: 0x0044ff });
+  const group = new Group();
+  const bar = new BoxGeometry(0.55, 0.16, 0.32);
+  const r = new Mesh(bar, red);
+  r.position.set(-0.32, 1.42, -0.35);
+  const b = new Mesh(bar, blue);
+  b.position.set(0.32, 1.42, -0.35);
+  group.add(r, b);
+  return { group, red, blue };
+}
