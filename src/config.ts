@@ -118,7 +118,8 @@ export const RENDER = {
 
 /** État de la voiture : accrochages avant destruction et réapparition. */
 export const DAMAGE = {
-  maxHits: 5, // accrochages (trafic + IA, pas la police) avant destruction
+  maxHits: 5, // accrochages (trafic, IA et bordures ; pas la police) avant destruction
+  wallImpact: 7, // m/s de vitesse perpendiculaire au mur (~25 km/h) : en dessous c'est un simple frottement
   minImpact: 3, // vitesse d'impact (m/s) minimale pour compter un accrochage
   cooldown: 0.6, // s : un même choc prolongé ne compte qu'une fois
   headOnSpeed: 150 / 3.6, // choc frontal contre le trafic au-delà → destruction immédiate

@@ -44,6 +44,8 @@ export interface RaceResult {
 }
 
 const COUNTDOWN = 3;
+/** identifiant des bordures pour l'anti-doublon des dégâts */
+const WALL = { wall: true };
 const hex = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 
 export class Game {
@@ -83,7 +85,7 @@ export class Game {
   private ghost = 0;
   private respawns = 0;
   /** dernier véhicule ayant causé un accrochage (un même véhicule ne compte qu'une fois par 1,5 s) */
-  private lastDamageBody: RailBody | null = null;
+  private lastDamageBody: object | null = null;
   private lastDamageTime = -99;
 
   state: GameState = 'idle';
@@ -471,6 +473,8 @@ export class Game {
     this.hitBins(dt, racing);
 
     if (player.wallImpact > 0) {
+      // un vrai choc contre la bordure abîme la voiture (un frottement, non)
+      if (racing && this.ghost <= 0 && player.wallImpact > DAMAGE.wallImpact) this.addDamage(WALL);
       if (player.wallImpact > 6) {
         const k = clamp(player.wallImpact / 25, 0, 1);
         this.camera.shake(0.25 + k * 0.5);
@@ -601,7 +605,7 @@ export class Game {
     }
   }
 
-  private addDamage(body: RailBody): void {
+  private addDamage(body: object): void {
     if (this.damageCooldown > 0 || this.respawnTimer > 0) return;
     if (body === this.lastDamageBody && this.raceTime - this.lastDamageTime < 1.5) return;
     this.lastDamageBody = body;
