@@ -81,6 +81,6 @@ src/
 - **Rendu** : DPR plafonné à 1,5, pas d'antialiasing ni d'ombres, brouillard à 280 m. Environ 31 draw calls et 35k triangles en course. Bundle d'environ 141 Ko gzip.
 - **Pas de rendu interpolé** : la physique tourne à 120 Hz, soit deux pas par frame à 60 fps, ce qui suffit à garder un mouvement fluide.
 - **Pause automatique** sur `visibilitychange` et lors du passage en portrait.
-- **Fullscreen + verrouillage paysage** au premier tap quand le navigateur le permet (Android). L'iPhone ne propose pas l'API Fullscreen : il faut installer le jeu en PWA (Partager → Sur l'écran d'accueil) pour le plein écran.
-- **Icône PWA en SVG** : le manifeste ne déclare que `icon.svg`. Chrome Android et iOS récents l'acceptent ; si un vieux lanceur exige du PNG, il faudra en générer un.
+- **Plein écran** : sur Android, l'API Fullscreen est relancée à chaque départ de course (si on en est sorti) et un bouton PLEIN ÉCRAN est dans le garage. Un bouton INSTALLER L'APP apparaît quand Chrome propose l'installation. L'iPhone n'autorise pas le plein écran pour un site : un guide (bouton « PLEIN ÉCRAN ? » et astuce sur l'écran titre) explique comment l'installer sur l'écran d'accueil, où il s'ouvre sans aucune barre. Attention, sur iOS l'app installée a sa propre sauvegarde, séparée de celle de Safari.
+- **Icônes PWA** : les PNG (180, 192 et 512 px, exigés par iOS) sont générés par `npm run icons` (`scripts/icons.mjs`), avec un rasteriseur et un encodeur PNG maison. Ce sont les mêmes formes que `public/icon.svg`.
 - **Hook de debug** : `?debug` expose `window.game` dans la console.

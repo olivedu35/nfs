@@ -7,6 +7,15 @@ import { TRACKS, TrackDef, trackById, trackSvg } from './game/tracks';
 import { GyroControls } from './input/GyroControls';
 import { Save, formatTime } from './storage/Save';
 import { qrSvg } from './ui/qr';
+import {
+  enterFullscreen,
+  exitFullscreen,
+  fullscreenSupported,
+  install,
+  isFullscreen,
+  isIOS,
+  isStandalone,
+} from './ui/fullscreen';
 
 registerSW({ immediate: true });
 
@@ -84,7 +93,9 @@ function boot(): void {
   const title = h(`<div class="screen title">
       <h1 class="logo">NIGHT<span>RUSH</span></h1>
       <div class="blink">TAP TO START</div>
+      <div class="fs-hint" hidden>Plein écran sur iPhone : <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H5.5v10h13V10H16"/></svg> Partager → « Sur l'écran d'accueil »</div>
     </div>`);
+  (title.querySelector('.fs-hint') as HTMLElement).hidden = !isIOS || isStandalone();
   ui.appendChild(title);
 
   // Garage
@@ -97,6 +108,10 @@ function boot(): void {
         </div>
         <button class="toggle" data-set="sound"></button>
         <button class="toggle" data-set="invert"></button>
+        <div class="fs-row">
+          <button class="toggle fs-btn" hidden></button>
+          <button class="toggle install-btn" hidden>INSTALLER L'APP</button>
+        </div>
         <div class="records"></div>
       </div>
       </div>
@@ -137,6 +152,7 @@ function boot(): void {
     inv.textContent = `INVERSER GYRO : ${s.gyroInvert ? 'OUI' : 'NON'}`;
     inv.hidden = s.control !== 'gyro';
     (garage.querySelector('.wallet-n') as HTMLElement).textContent = fmt(Save.wallet);
+    refreshFullscreenUi();
     (garage.querySelector('.records') as HTMLElement).innerHTML =
       `RECORD POUBELLES <b>${fmt(Save.bestScore)}</b><br>TITRES DE CHAMPION <b>${Save.champWins}</b>`;
     game.applySettings(s);
@@ -175,6 +191,55 @@ function boot(): void {
   garage.querySelector('[data-set="invert"]')!.addEventListener('click', () => {
     Save.setSettings({ gyroInvert: !Save.settings.gyroInvert });
     refreshGarage();
+  });
+
+  // Plein écran / installation
+  const fsBtn = garage.querySelector('.fs-btn') as HTMLButtonElement;
+  const installBtn = garage.querySelector('.install-btn') as HTMLButtonElement;
+  function refreshFullscreenUi(): void {
+    if (isStandalone()) {
+      fsBtn.hidden = true;
+      installBtn.hidden = true;
+      return;
+    }
+    if (fullscreenSupported()) {
+      fsBtn.hidden = false;
+      fsBtn.textContent = isFullscreen() ? 'QUITTER PLEIN ÉCRAN' : 'PLEIN ÉCRAN';
+    } else {
+      // iPhone : impossible depuis Safari → guide d'installation
+      fsBtn.hidden = !isIOS;
+      fsBtn.textContent = 'PLEIN ÉCRAN ?';
+    }
+    installBtn.hidden = !install.available;
+  }
+  document.addEventListener('fullscreenchange', refreshFullscreenUi);
+  install.onChange(refreshFullscreenUi);
+  fsBtn.addEventListener('click', () => {
+    if (!fullscreenSupported()) {
+      show(fsHelp);
+      return;
+    }
+    if (isFullscreen()) exitFullscreen();
+    else enterFullscreen();
+  });
+  installBtn.addEventListener('click', () => void install.prompt());
+
+  const fsHelp = h(`<div class="screen overlay fshelp" hidden>
+      <h2>JOUER EN PLEIN ÉCRAN</h2>
+      <p class="help-lead">Sur iPhone, Safari ne laisse aucun site masquer ses barres.<br>La solution : installer le jeu comme une app.</p>
+      <ol class="steps">
+        <li><span class="n">1</span>Touchez <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H5.5v10h13V10H16"/></svg> <b>Partager</b> dans la barre de Safari</li>
+        <li><span class="n">2</span>Choisissez <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8.5v7M8.5 12h7"/></svg> <b>« Sur l'écran d'accueil »</b></li>
+        <li><span class="n">3</span>Lancez <b>Night Rush</b> depuis l'icône : plus de barre ni d'onglets !</li>
+      </ol>
+      <p class="help-note">Sans installer : Réglages → Safari → désactivez « Barre d'onglets en paysage ».<br>
+      L'app installée garde sa propre sauvegarde (points et améliorations repartent de zéro).</p>
+      <button class="big" data-a="ok">COMPRIS</button>
+    </div>`);
+  ui.appendChild(fsHelp);
+  fsHelp.querySelector('[data-a="ok"]')!.addEventListener('click', () => {
+    refreshGarage();
+    show(garage);
   });
 
   // Boutique
@@ -336,29 +401,13 @@ function boot(): void {
   ui.appendChild(results);
 
   const show = (el: HTMLElement | null): void => {
-    for (const s of [title, garage, shop, tracksel, champIntro, final, pause, results]) s.hidden = s !== el;
+    for (const s of [title, garage, shop, tracksel, champIntro, final, pause, results, fsHelp]) s.hidden = s !== el;
   };
 
-  let unlocked = false;
+  /** Geste utilisateur : audio + plein écran (retenté à chaque départ, au cas où on en serait sorti). */
   const unlock = (): void => {
     game.sound.unlock();
-    if (unlocked) return;
-    unlocked = true;
-    const de = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
-    try {
-      if (de.requestFullscreen) {
-        de.requestFullscreen({ navigationUI: 'hide' })
-          .then(() => {
-            const so = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-            return so.lock?.('landscape');
-          })
-          .catch(() => undefined);
-      } else {
-        de.webkitRequestFullscreen?.();
-      }
-    } catch {
-      /* fullscreen non supporté (iPhone) */
-    }
+    enterFullscreen();
   };
 
   // « click » (et non pointerup) : sinon le clic synthétisé traverse vers le garage
