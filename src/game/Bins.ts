@@ -105,6 +105,15 @@ export class Bins {
     this.reset();
   }
 
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    (this.mesh.material as MeshLambertMaterial).dispose();
+    this.debrisMesh.geometry.dispose();
+    (this.debrisMesh.material as MeshLambertMaterial).dispose();
+    this.mesh.dispose();
+    this.debrisMesh.dispose();
+  }
+
   reset(): void {
     for (const b of this.bins) this.restore(b);
     for (const d of this.debris) d.life = 0;

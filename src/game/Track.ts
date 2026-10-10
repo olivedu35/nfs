@@ -1,7 +1,6 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  CatmullRomCurve3,
   CircleGeometry,
   Color,
   CylinderGeometry,
@@ -23,14 +22,9 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { AI, TRACK } from '../config';
+import { TrackDef, TrackTheme, trackCurve } from './tracks';
 import { mulberry32 } from './rng';
 
-/** Point de contrôle du circuit (x, z) — boucle fermée dans le sens du tracé. */
-const CONTROL: [number, number][] = [
-  [0, 0], [120, 0], [220, -10], [290, 40], [300, 130], [250, 190], [170, 180],
-  [120, 230], [130, 320], [60, 370], [-60, 360], [-130, 300], [-120, 200],
-  [-190, 140], [-210, 50], [-140, -20], [-60, -10],
-];
 
 export interface TrackSample {
   x: number;
@@ -65,12 +59,11 @@ export class Track {
   readonly minZ: number;
   readonly maxZ: number;
 
-  constructor() {
-    const curve = new CatmullRomCurve3(
-      CONTROL.map(([x, z]) => new Vector3(x, 0, z)),
-      true,
-      'centripetal',
-    );
+  readonly theme: TrackTheme;
+
+  constructor(readonly def: TrackDef) {
+    this.theme = def.theme;
+    const curve = trackCurve(def);
     this.length = curve.getLength();
     this.ds = this.length / this.n;
     const p = new Vector3();
@@ -119,6 +112,17 @@ export class Track {
         adv[i] = Math.min(vCurve[i], Math.sqrt(next * next + 2 * decel * this.ds));
       }
     }
+  }
+
+  /** Libère la mémoire GPU du décor (changement de circuit). */
+  dispose(): void {
+    this.group.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      m.geometry.dispose();
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of mats) mat.dispose();
+    });
   }
 
   wrapS(s: number): number {
@@ -194,7 +198,7 @@ export class Track {
     // Sol
     const ground = new Mesh(
       new PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2),
-      new MeshLambertMaterial({ color: 0x14151e }),
+      new MeshLambertMaterial({ color: this.theme.ground }),
     );
     ground.position.set((this.minX + this.maxX) / 2, 0, (this.minZ + this.maxZ) / 2);
     this.group.add(ground);
@@ -216,7 +220,7 @@ export class Track {
     roadGeo.setAttribute('position', new BufferAttribute(roadPos, 3));
     roadGeo.setIndex(roadIdx);
     roadGeo.computeVertexNormals();
-    this.group.add(new Mesh(roadGeo, new MeshLambertMaterial({ color: 0x3b3d4a })));
+    this.group.add(new Mesh(roadGeo, new MeshLambertMaterial({ color: this.theme.road })));
 
     // Marquages (pointillés, bordures rouges/blanches, ligne d'arrivée) : une seule géométrie colorée
     const mPos: number[] = [];
@@ -262,10 +266,10 @@ export class Track {
 
     // Murets (deux rubans verticaux)
     const wallGeo = this.buildWalls(hw + 1.6, TRACK.wallHeight);
-    this.group.add(new Mesh(wallGeo, new MeshLambertMaterial({ color: 0x7a7f96, side: DoubleSide })));
+    this.group.add(new Mesh(wallGeo, new MeshLambertMaterial({ color: this.theme.wall, side: DoubleSide })));
     // liseré lumineux sur les murets
     const stripGeo = this.buildWalls(hw + 1.55, 0.12, TRACK.wallHeight - 0.2);
-    this.group.add(new Mesh(stripGeo, new MeshBasicMaterial({ color: 0x2de2ff, side: DoubleSide })));
+    this.group.add(new Mesh(stripGeo, new MeshBasicMaterial({ color: this.theme.strip, side: DoubleSide })));
 
     this.buildGantry();
     this.buildLamps();
@@ -306,7 +310,7 @@ export class Track {
     const frame = new Mesh(mergeGeometries(parts), new MeshLambertMaterial({ color: 0x22242e }));
     const banner = new Mesh(
       new BoxGeometry(hw * 2 - 2, 0.9, 0.55).translate(0, 7, 0),
-      new MeshBasicMaterial({ color: 0xff2d55 }),
+      new MeshBasicMaterial({ color: this.theme.banner }),
     );
     for (const m of [frame, banner]) {
       m.position.set(this.px[0], 0, this.pz[0]);
@@ -334,13 +338,13 @@ export class Track {
     );
     const heads = new InstancedMesh(
       new BoxGeometry(1.2, 0.2, 0.5),
-      new MeshBasicMaterial({ color: 0xffd9a0 }),
+      new MeshBasicMaterial({ color: this.theme.lamp }),
       count,
     );
     const pools = new InstancedMesh(
       new CircleGeometry(4.5, 16).rotateX(-Math.PI / 2),
       new MeshBasicMaterial({
-        color: 0x5a4628,
+        color: this.theme.pool,
         transparent: true,
         blending: AdditiveBlending,
         depthWrite: false,
@@ -366,13 +370,13 @@ export class Track {
   }
 
   private buildBuildings(): void {
-    const rand = mulberry32(1337);
+    const rand = mulberry32(this.def.seed);
     const step = 17;
     const margin = 150;
     const hw = TRACK.halfWidth;
     const matrices: Matrix4[] = [];
     const colors: Color[] = [];
-    const palette = [0x2b2f45, 0x3a2f4a, 0x1f3a44, 0x45384a, 0x30343c, 0x283a30];
+    const palette = this.theme.palette;
     const o = new Object3D();
     for (let x = this.minX - margin; x <= this.maxX + margin; x += step) {
       for (let z = this.minZ - margin; z <= this.maxZ + margin; z += step) {
@@ -383,7 +387,7 @@ export class Track {
         const dist = this.distanceTo(cx, cz);
         if (dist < hw + 5 + Math.max(w, d) * 0.72 || dist > 175) continue;
         const near = 1 - Math.min(1, dist / 175);
-        const h = 8 + rand() * 30 + rand() * rand() * 45 * (0.4 + near);
+        const h = (8 + rand() * 30 + rand() * rand() * 45 * (0.4 + near)) * this.theme.height;
         o.position.set(cx, h / 2, cz);
         o.scale.set(w, h, d);
         o.updateMatrix();
@@ -393,7 +397,7 @@ export class Track {
         colors.push(c);
       }
     }
-    const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), buildingMaterial(), matrices.length);
+    const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), buildingMaterial(this.theme.window), matrices.length);
     matrices.forEach((m, i) => {
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, colors[i]);
@@ -403,12 +407,15 @@ export class Track {
 }
 
 /** Matériau des immeubles : couleur plate + fenêtres émissives procédurales (aucune texture). */
-function buildingMaterial(): ShaderMaterial {
+function buildingMaterial(windowColor: number): ShaderMaterial {
   return new ShaderMaterial({
     fog: true,
     uniforms: UniformsUtils.merge([
       UniformsLib.fog,
-      { uLight: { value: new Vector3(0.4, 0.8, 0.3).normalize() } },
+      {
+        uLight: { value: new Vector3(0.4, 0.8, 0.3).normalize() },
+        uWindow: { value: new Color(windowColor) },
+      },
     ]),
     vertexShader: /* glsl */ `
       #include <common>
@@ -437,6 +444,7 @@ function buildingMaterial(): ShaderMaterial {
       #include <common>
       #include <fog_pars_fragment>
       uniform vec3 uLight;
+      uniform vec3 uWindow;
       varying vec3 vW;
       varying vec3 vN;
       varying vec3 vCol;
@@ -452,7 +460,7 @@ function buildingMaterial(): ShaderMaterial {
           float win = step(0.28, f.x) * step(f.x, 0.72) * step(0.3, f.y) * step(f.y, 0.75);
           float seed = hash(cell + vCol.rg * 91.0);
           win *= step(0.55, seed) * step(1.5, vW.y);
-          vec3 lit = mix(vec3(1.0, 0.78, 0.45), vec3(0.55, 0.85, 1.0), step(0.85, seed));
+          vec3 lit = mix(uWindow, vec3(0.55, 0.85, 1.0), step(0.85, seed));
           col = mix(col, lit * (0.6 + 0.4 * hash(cell * 1.7)), win);
         } else {
           col *= 0.7;

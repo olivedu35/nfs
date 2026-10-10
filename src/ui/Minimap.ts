@@ -35,6 +35,12 @@ export class Minimap {
     return [(this.ox - x) * this.scale, (this.oz - z) * this.scale];
   }
 
+  setTrack(track: Track): void {
+    this.track = track;
+    this.bg.getContext('2d')!.clearRect(0, 0, this.bg.width, this.bg.height);
+    this.prerender();
+  }
+
   private prerender(): void {
     const t = this.track;
     const px = this.size * this.dpr;

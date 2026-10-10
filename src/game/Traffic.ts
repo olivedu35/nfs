@@ -17,6 +17,11 @@ export class Traffic {
   readonly meshes = createCarInstances(TRAFFIC.count);
   private dummy = new Object3D();
 
+  setTrack(track: Track): void {
+    this.track = track;
+    for (const c of this.cars) c.track = track;
+  }
+
   constructor(private track: Track) {
     const tmp = new Color();
     for (let i = 0; i < TRAFFIC.count; i++) {

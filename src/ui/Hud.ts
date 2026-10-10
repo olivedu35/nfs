@@ -144,7 +144,7 @@ export class Hud {
   }
 
   /** Petit message (DRIFT, NEAR MISS…). */
-  toast(text: string, color = '#ffd23f'): void {
+  toast(text: string, color = '#ffd23f', duration = 0.9): void {
     if (this.cache.toast === text && this.toastTimer > 0.4) {
       this.toastTimer = 0.9;
       return;
@@ -156,6 +156,6 @@ export class Hud {
     void this.el.toast.offsetWidth;
     this.el.toast.classList.add('show');
     this.cache['toast.c.show'] = '1';
-    this.toastTimer = 0.9;
+    this.toastTimer = duration;
   }
 }

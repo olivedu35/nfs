@@ -9,9 +9,14 @@ export interface Settings {
   car: number;
 }
 
+interface TrackRecord {
+  race: number | null;
+  lap: number | null;
+}
+
 interface SaveData {
-  bestRace: number | null;
-  bestLap: number | null;
+  records: Record<string, TrackRecord>;
+  champWins: number;
   bestScore: number;
   wallet: number;
   upgrades: Record<UpgradeId, number>;
@@ -20,8 +25,8 @@ interface SaveData {
 
 const KEY = 'nightrush.v1';
 const DEFAULTS: SaveData = {
-  bestRace: null,
-  bestLap: null,
+  records: {},
+  champWins: 0,
   bestScore: 0,
   wallet: 5000, // cadeau de bienvenue : de quoi acheter 3 améliorations tout de suite
   upgrades: { engine: 0, turbo: 0, tires: 0, nitro: 0, magnet: 0 },
@@ -32,10 +37,15 @@ function load(): SaveData {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULTS);
-    const d = JSON.parse(raw) as Partial<SaveData>;
+    const d = JSON.parse(raw) as Partial<SaveData> & { bestRace?: number | null; bestLap?: number | null };
+    const records = d.records ?? {};
+    // migration v1 : les anciens records globaux appartiennent au circuit d'origine
+    if (!d.records && (d.bestRace != null || d.bestLap != null)) {
+      records.downtown = { race: d.bestRace ?? null, lap: d.bestLap ?? null };
+    }
     return {
-      bestRace: d.bestRace ?? null,
-      bestLap: d.bestLap ?? null,
+      records,
+      champWins: d.champWins ?? 0,
       bestScore: d.bestScore ?? 0,
       wallet: d.wallet ?? DEFAULTS.wallet,
       upgrades: { ...DEFAULTS.upgrades, ...(d.upgrades ?? {}) },
@@ -64,8 +74,15 @@ export const Save = {
     Object.assign(data.settings, patch);
     persist();
   },
-  get bestRace(): number | null {
-    return data.bestRace;
+  bestRace(track: string): number | null {
+    return data.records[track]?.race ?? null;
+  },
+  get champWins(): number {
+    return data.champWins;
+  },
+  addChampWin(): void {
+    data.champWins++;
+    persist();
   },
   get bestScore(): number {
     return data.bestScore;
@@ -102,18 +119,19 @@ export const Save = {
     persist();
     return true;
   },
-  get bestLap(): number | null {
-    return data.bestLap;
+  bestLap(track: string): number | null {
+    return data.records[track]?.lap ?? null;
   },
   /** Enregistre les temps et renvoie ce qui a été battu. */
-  submit(race: number | null, lap: number | null): { race: boolean; lap: boolean } {
+  submit(track: string, race: number | null, lap: number | null): { race: boolean; lap: boolean } {
     const res = { race: false, lap: false };
-    if (race !== null && (data.bestRace === null || race < data.bestRace)) {
-      data.bestRace = race;
+    const rec = (data.records[track] ??= { race: null, lap: null });
+    if (race !== null && (rec.race === null || race < rec.race)) {
+      rec.race = race;
       res.race = true;
     }
-    if (lap !== null && (data.bestLap === null || lap < data.bestLap)) {
-      data.bestLap = lap;
+    if (lap !== null && (rec.lap === null || lap < rec.lap)) {
+      rec.lap = lap;
       res.lap = true;
     }
     persist();

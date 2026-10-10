@@ -1,7 +1,9 @@
 import './style.css';
 import { registerSW } from 'virtual:pwa-register';
 import { CARS, UPGRADES, UPGRADE_COSTS, UpgradeId } from './config';
+import { CHAMP_BONUS, CHAMP_POINTS, Championship } from './game/Championship';
 import { Game, RaceResult } from './game/Game';
+import { TRACKS, TrackDef, trackById, trackSvg } from './game/tracks';
 import { GyroControls } from './input/GyroControls';
 import { Save, formatTime } from './storage/Save';
 import { qrSvg } from './ui/qr';
@@ -13,7 +15,14 @@ const canvas = document.getElementById('gl') as HTMLCanvasElement;
 
 // ------------------------------------------------------------ blocages tactiles
 const stop = (e: Event): void => e.preventDefault();
-document.addEventListener('touchmove', stop, { passive: false });
+// le scroll n'est autorisé que dans les écrans de menu (qui peuvent dépasser sur petit écran)
+document.addEventListener(
+  'touchmove',
+  (e) => {
+    if (!(e.target as Element | null)?.closest?.('.screen')) e.preventDefault();
+  },
+  { passive: false },
+);
 document.addEventListener('gesturestart', stop);
 document.addEventListener('gesturechange', stop);
 document.addEventListener('dblclick', stop);
@@ -80,6 +89,7 @@ function boot(): void {
 
   // Garage
   const garage = h(`<div class="screen garage" hidden>
+      <div class="garage-top">
       <div class="cars"></div>
       <div class="settings">
         <div class="seg" data-set="control">
@@ -89,9 +99,11 @@ function boot(): void {
         <button class="toggle" data-set="invert"></button>
         <div class="records"></div>
       </div>
+      </div>
       <div class="row">
         <button class="shop-btn">BOUTIQUE · <span class="wallet-n"></span> PTS</button>
         <button class="big go">COURSE ▶</button>
+        <button class="big champ-btn">CHAMPIONNAT ★</button>
       </div>
       <div class="note" hidden></div>
     </div>`);
@@ -126,7 +138,7 @@ function boot(): void {
     inv.hidden = s.control !== 'gyro';
     (garage.querySelector('.wallet-n') as HTMLElement).textContent = fmt(Save.wallet);
     (garage.querySelector('.records') as HTMLElement).innerHTML =
-      `RECORD COURSE <b>${formatTime(Save.bestRace)}</b><br>MEILLEUR TOUR <b>${formatTime(Save.bestLap)}</b><br>RECORD POUBELLES <b>${fmt(Save.bestScore)}</b>`;
+      `RECORD POUBELLES <b>${fmt(Save.bestScore)}</b><br>TITRES DE CHAMPION <b>${Save.champWins}</b>`;
     game.applySettings(s);
   };
 
@@ -206,15 +218,95 @@ function boot(): void {
     row.classList.add('bought');
     refreshShop();
   });
+  let shopReturn: HTMLElement = garage;
   shop.querySelector('[data-a="back"]')!.addEventListener('click', () => {
     refreshGarage();
-    show(garage);
+    show(shopReturn);
   });
-  const openShop = (): void => {
+  const openShop = (from: HTMLElement = garage): void => {
+    shopReturn = from;
+    (shop.querySelector('[data-a="back"]') as HTMLElement).textContent = from === garage ? '◀ GARAGE' : '◀ RETOUR';
     refreshShop();
     show(shop);
   };
-  garage.querySelector('.shop-btn')!.addEventListener('click', openShop);
+  garage.querySelector('.shop-btn')!.addEventListener('click', () => openShop(garage));
+
+  // Choix du circuit (course simple)
+  const trackCard = (t: TrackDef, extra: string, tag: 'button' | 'div' = 'button'): string => {
+    const strip = `#${t.theme.strip.toString(16).padStart(6, '0')}`;
+    return `<${tag} class="track-card" data-id="${t.id}" style="--c:${strip}">
+        ${trackSvg(t, strip)}
+        <b>${t.name}</b><small>${t.subtitle}</small><small class="tc-extra">${extra}</small>
+      </${tag}>`;
+  };
+  const tracksel = h(`<div class="screen overlay tracksel" hidden>
+      <div class="shop-head"><button data-a="back">◀ GARAGE</button><h2>CIRCUIT</h2></div>
+      <div class="track-cards"></div>
+    </div>`);
+  ui.appendChild(tracksel);
+  const refreshTracks = (): void => {
+    (tracksel.querySelector('.track-cards') as HTMLElement).innerHTML = TRACKS.map((t) =>
+      trackCard(t, `${t.laps} TOURS · RECORD ${formatTime(Save.bestRace(t.id))}`),
+    ).join('');
+  };
+  tracksel.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-a="back"]')) {
+      refreshGarage();
+      show(garage);
+      return;
+    }
+    const card = target.closest<HTMLElement>('.track-card');
+    if (!card) return;
+    champ.stop();
+    lastTrack = trackById(card.dataset.id!);
+    startRace(lastTrack);
+  });
+
+  // Championnat
+  const champ = new Championship();
+  const champIntro = h(`<div class="screen overlay champintro" hidden>
+      <div class="shop-head"><button data-a="back">◀ GARAGE</button><h2>CHAMPIONNAT</h2></div>
+      <div class="track-cards"></div>
+      <div class="champ-rules">POINTS ${CHAMP_POINTS.join(' / ')} · PRIME DU CHAMPION <b>${fmt(CHAMP_BONUS[0])} PTS</b></div>
+      <button class="big" data-a="go">C'EST PARTI ▶</button>
+    </div>`);
+  ui.appendChild(champIntro);
+  (champIntro.querySelector('.track-cards') as HTMLElement).innerHTML = TRACKS.map((t, i) =>
+    trackCard(t, `MANCHE ${i + 1} · ${t.laps} TOURS`, 'div'),
+  ).join('');
+  champIntro.addEventListener('click', (e) => {
+    const a = (e.target as HTMLElement).closest<HTMLElement>('[data-a]')?.dataset.a;
+    if (a === 'back') {
+      refreshGarage();
+      show(garage);
+    } else if (a === 'go') {
+      champ.start();
+      startChampRound();
+    }
+  });
+  const startChampRound = (): void => {
+    startRace(champ.track, `MANCHE ${champ.round + 1}/${champ.total} · ${champ.track.name}`);
+  };
+
+  // Podium final du championnat
+  const final = h(`<div class="screen overlay final" hidden>
+      <h2 class="final-title"></h2>
+      <table class="standings champ-final"></table>
+      <div class="res-info final-info"></div>
+      <div class="row">
+        <button class="big" data-a="menu">GARAGE</button>
+        <button class="shop-btn" data-a="shop">BOUTIQUE</button>
+      </div>
+    </div>`);
+  ui.appendChild(final);
+  final.addEventListener('click', (e) => {
+    const a = (e.target as HTMLElement).closest<HTMLElement>('[data-a]')?.dataset.a;
+    if (a === 'menu') {
+      refreshGarage();
+      show(garage);
+    } else if (a === 'shop') openShop(garage);
+  });
 
   // Pause
   const pause = h(`<div class="screen overlay pause-screen" hidden>
@@ -228,10 +320,15 @@ function boot(): void {
   // Résultats
   const results = h(`<div class="screen overlay results" hidden>
       <h2 class="res-title"></h2>
-      <table class="standings"></table>
+      <div class="res-sub"></div>
+      <div class="res-cols">
+        <table class="standings race-table"></table>
+        <table class="standings champ-table"></table>
+      </div>
       <div class="res-info"></div>
       <div class="row">
         <button class="big" data-a="replay">REJOUER</button>
+        <button class="big" data-a="next">MANCHE SUIVANTE ▶</button>
         <button class="shop-btn" data-a="shop">BOUTIQUE</button>
         <button data-a="menu">GARAGE</button>
       </div>
@@ -239,7 +336,7 @@ function boot(): void {
   ui.appendChild(results);
 
   const show = (el: HTMLElement | null): void => {
-    for (const s of [title, garage, shop, pause, results]) s.hidden = s !== el;
+    for (const s of [title, garage, shop, tracksel, champIntro, final, pause, results]) s.hidden = s !== el;
   };
 
   let unlocked = false;
@@ -271,13 +368,23 @@ function boot(): void {
     show(garage);
   });
 
-  const start = (): void => {
+  let lastTrack: TrackDef = TRACKS[0];
+  const startRace = (def: TrackDef, banner?: string): void => {
     unlock();
     show(null);
     game.onEnd = onEnd;
-    game.startRace(Save.settings.car);
+    game.startRace(Save.settings.car, def, banner);
   };
-  garage.querySelector('.go')!.addEventListener('click', start);
+  /** Relance la course en cours (pause → recommencer, ou rejouer). */
+  const restart = (): void => {
+    if (champ.active) startChampRound();
+    else startRace(lastTrack);
+  };
+  garage.querySelector('.go')!.addEventListener('click', () => {
+    refreshTracks();
+    show(tracksel);
+  });
+  garage.querySelector('.champ-btn')!.addEventListener('click', () => show(champIntro));
 
   game.hud.pauseBtn.addEventListener('click', () => {
     if (game.state === 'idle') return;
@@ -291,9 +398,10 @@ function boot(): void {
       show(null);
     } else if (a === 'restart') {
       game.setPaused(false);
-      start();
+      restart();
     } else if (a === 'menu') {
       game.setPaused(false);
+      champ.stop(); // quitter en pleine course abandonne le championnat
       game.quitToTitle();
       refreshGarage();
       show(garage);
@@ -301,11 +409,17 @@ function boot(): void {
   });
   results.addEventListener('click', (e) => {
     const a = (e.target as HTMLElement).closest<HTMLElement>('[data-a]')?.dataset.a;
-    if (a === 'replay') start();
-    else if (a === 'shop') {
-      game.quitToTitle();
-      openShop();
+    if (a === 'replay') restart();
+    else if (a === 'next') {
+      if (champ.isLastRound) showFinal();
+      else {
+        champ.next();
+        startChampRound();
+      }
+    } else if (a === 'shop') {
+      openShop(results); // on peut dépenser entre deux manches
     } else if (a === 'menu') {
+      champ.stop();
       game.quitToTitle();
       refreshGarage();
       show(garage);
@@ -317,25 +431,70 @@ function boot(): void {
     const t = results.querySelector('.res-title') as HTMLElement;
     t.textContent = r.busted ? 'BUSTED' : r.position === 1 ? 'VICTOIRE !' : `${r.position}e PLACE`;
     t.className = `res-title ${r.busted ? 'bad' : r.position === 1 ? 'gold' : ''}`;
-    (results.querySelector('.standings') as HTMLElement).innerHTML = r.standings
+    if (champ.active) champ.record(r);
+    (results.querySelector('.res-sub') as HTMLElement).textContent = champ.active
+      ? `CHAMPIONNAT · MANCHE ${champ.round + 1}/${champ.total} · ${r.trackName}`
+      : r.trackName;
+    (results.querySelector('.race-table') as HTMLElement).innerHTML = r.standings
       .map(
         (s, i) => `<tr class="${s.player ? 'me' : ''}">
           <td>${s.time === null ? '—' : i + 1}</td>
           <td><i style="background:${s.color}"></i>${s.name}</td>
           <td>${s.time === null ? (s.player ? 'ARRÊTÉ' : '—') : (s.estimated ? '~' : '') + formatTime(s.time)}</td>
+          ${champ.active ? `<td class="gain">+${CHAMP_POINTS[i] ?? 0}</td>` : ''}
         </tr>`,
       )
       .join('');
+    const champTable = results.querySelector('.champ-table') as HTMLElement;
+    champTable.hidden = !champ.active;
+    if (champ.active) {
+      champTable.innerHTML =
+        `<caption>GÉNÉRAL</caption>` +
+        champ
+          .standings()
+          .map(
+            (c, i) => `<tr class="${c.player ? 'me' : ''}"><td>${i + 1}</td>
+              <td><i style="background:${c.color}"></i>${c.name}</td><td>${c.points} PTS</td></tr>`,
+          )
+          .join('');
+    }
+    (results.querySelector('[data-a="replay"]') as HTMLElement).hidden = champ.active;
+    const nextBtn = results.querySelector('[data-a="next"]') as HTMLElement;
+    nextBtn.hidden = !champ.active;
+    nextBtn.textContent = champ.isLastRound ? 'PODIUM ▶' : 'MANCHE SUIVANTE ▶';
     const binsLine =
-      `<br>POUBELLES <b>${r.bins}</b>${r.wrecks ? ` · POLICES DÉTRUITES <b>${r.wrecks}</b>` : ''}` +
+      `POUBELLES <b>${r.bins}</b>${r.wrecks ? ` · POLICES KO <b>${r.wrecks}</b>` : ''}` +
       ` · SCORE <b>${fmt(r.score)}</b>${r.scoreRecord ? ' <em>RECORD !</em>' : ''}` +
       `<br><span class="earn">+${fmt(r.score)} PTS → PORTEFEUILLE ${fmt(r.wallet)} PTS</span>`;
     (results.querySelector('.res-info') as HTMLElement).innerHTML = r.busted
-      ? `La police vous a coincé. Astuce : percutez-la 3 fois à 50 km/h ou plus pour la détruire !${binsLine}`
-      : `TEMPS <b>${formatTime(r.time)}</b>${r.record.race ? ' <em>NOUVEAU RECORD !</em>' : ''}<br>
-         MEILLEUR TOUR <b>${formatTime(r.bestLap)}</b>${r.record.lap ? ' <em>RECORD !</em>' : ''}<br>
-         RECORD COURSE <b>${formatTime(Save.bestRace)}</b>${binsLine}`;
+      ? `Astuce : percutez la police 3 fois à 50 km/h ou plus pour la détruire !<br>${binsLine}`
+      : `TEMPS <b>${formatTime(r.time)}</b>${r.record.race ? ' <em>RECORD !</em>' : ''}
+         · MEILLEUR TOUR <b>${formatTime(r.bestLap)}</b>${r.record.lap ? ' <em>RECORD !</em>' : ''}
+         · RECORD <b>${formatTime(Save.bestRace(r.trackId))}</b><br>${binsLine}`;
     show(results);
+  }
+
+  function showFinal(): void {
+    const table = champ.standings();
+    const place = champ.playerPlace();
+    const bonus = CHAMP_BONUS[place - 1] ?? 0;
+    champ.stop();
+    game.quitToTitle();
+    Save.deposit(bonus);
+    if (place === 1) Save.addChampWin();
+    const t = final.querySelector('.final-title') as HTMLElement;
+    t.textContent = place === 1 ? 'CHAMPION !' : `${place}e DU CHAMPIONNAT`;
+    t.className = `final-title ${place === 1 ? 'gold' : ''}`;
+    (final.querySelector('.champ-final') as HTMLElement).innerHTML = table
+      .map(
+        (c, i) => `<tr class="${c.player ? 'me' : ''}"><td>${i + 1}</td>
+          <td><i style="background:${c.color}"></i>${c.name}</td><td>${c.points} PTS</td></tr>`,
+      )
+      .join('');
+    (final.querySelector('.final-info') as HTMLElement).innerHTML =
+      `<span class="earn">PRIME +${fmt(bonus)} PTS → PORTEFEUILLE ${fmt(Save.wallet)} PTS</span>` +
+      (place === 1 ? `<br>TITRES DE CHAMPION <b>${Save.champWins}</b>` : '');
+    show(final);
   }
 
   // Pause auto : onglet masqué ou passage en portrait

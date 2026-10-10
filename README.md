@@ -30,6 +30,12 @@ vercel --prod        # ou : connecter le dépôt GitHub dans le dashboard Vercel
 
 `vercel.json` déclare le framework Vite, la sortie `dist` et un cache long (`immutable`) pour les assets hashés.
 
+## Modes et circuits
+
+- **Course** : choisissez l'un des 4 circuits et faites la course.
+- **Championnat** : les 4 circuits s'enchaînent. Chaque manche rapporte 10, 6, 3 ou 1 point selon la place (BUSTED = dernier). Un classement général s'affiche après chaque manche, et la boutique reste accessible entre les manches. Le podium final verse une prime : 20 000 points pour le champion.
+- **Circuits** : DOWNTOWN (équilibré, 3 tours), PORT (docks, longues lignes droites, 3 tours), CHINATOWN (court et serré, 4 tours), AUTOROUTE (grandes courbes rapides, 3 tours). Chacun a son ambiance (ciel, néons, couleur des fenêtres, hauteur des immeubles) et ses propres records.
+
 ## Contrôles
 
 - **Boutons (par défaut)** : ◀ ▶ à gauche ; GAZ, FREIN/MARCHE ARRIÈRE et NITRO à droite. Multi-touch complet, on peut glisser d'une flèche à l'autre sans lever le doigt.
@@ -47,6 +53,8 @@ src/
   main.ts              bootstrap, écrans (titre, garage, pause, résultats, desktop QR, portrait)
   config.ts            TOUT l'équilibrage : voitures, physique, nitro, IA, trafic, police, caméra
   game/Game.ts         boucle à pas fixe (120 Hz) découplée du rendu, états, collisions, classement
+  game/tracks.ts       définitions des 4 circuits : tracé, ambiance, nombre de tours, aperçu SVG
+  game/Championship.ts points et classement général du championnat
   game/Track.ts        spline Catmull-Rom, route/marquages/murets fusionnés, immeubles et lampadaires instanciés
   game/Car.ts          physique arcade du joueur (adhérence latérale, drift, murs)
   game/CarModel.ts     voitures en primitives fusionnées (2 à 3 draw calls par voiture)

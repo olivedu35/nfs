@@ -19,7 +19,8 @@ export class RailBody {
   vx = 0;
   vz = 0;
 
-  constructor(protected track: Track) {}
+  /** modifiable : un même véhicule est réutilisé d'un circuit à l'autre */
+  constructor(public track: Track) {}
 
   get progress(): number {
     return this.lap * this.track.length + this.s;

@@ -21,6 +21,7 @@ import { Police } from './Police';
 import { RailBody } from './Rail';
 import { clamp } from './rng';
 import { Track, TrackSample } from './Track';
+import { TRACKS, TrackDef } from './tracks';
 import { Traffic, TrafficCar } from './Traffic';
 import { Trails } from './Trails';
 
@@ -33,6 +34,8 @@ export interface RaceResult {
   bestLap: number | null;
   standings: { name: string; color: string; time: number | null; player: boolean; estimated: boolean }[];
   record: { race: boolean; lap: boolean };
+  trackId: string;
+  trackName: string;
   bins: number;
   score: number;
   scoreRecord: boolean;
@@ -46,7 +49,7 @@ const hex = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 export class Game {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
-  readonly track = new Track();
+  track: Track;
   readonly camera: ChaseCamera;
   readonly hud: Hud;
   readonly minimap: Minimap;
@@ -96,8 +99,10 @@ export class Game {
     this.renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxDpr));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    this.track = new Track(TRACKS[0]);
     this.scene.background = new Color(RENDER.sky);
     this.scene.fog = new Fog(RENDER.sky, RENDER.fogNear, RENDER.fogFar);
+    this.applyTheme();
     this.scene.add(new AmbientLight(0x8890c8, 1.1));
     const moon = new DirectionalLight(0xaab4ff, 1.2);
     moon.position.set(0.4, 0.8, 0.3);
@@ -139,6 +144,39 @@ export class Game {
     this.renderer.setAnimationLoop((t) => this.frame(t));
   }
 
+  get laps(): number {
+    return this.track.def.laps;
+  }
+
+  private applyTheme(): void {
+    const t = this.track.theme;
+    (this.scene.background as Color).setHex(t.sky);
+    const fog = this.scene.fog as Fog;
+    fog.color.setHex(t.sky);
+    fog.far = t.fogFar;
+  }
+
+  /** Change de circuit : le décor est reconstruit, les véhicules sont réutilisés. */
+  loadTrack(def: TrackDef): void {
+    if (this.track.def.id === def.id) return;
+    this.scene.remove(this.track.group);
+    this.track.dispose();
+    this.track = new Track(def);
+    this.scene.add(this.track.group);
+    this.applyTheme();
+    for (const ai of this.ais) ai.track = this.track;
+    this.police.track = this.track;
+    this.traffic.setTrack(this.track);
+    this.scene.remove(this.bins.mesh, this.bins.debrisMesh);
+    this.bins.dispose();
+    this.bins = new Bins(this.track);
+    this.scene.add(this.bins.mesh, this.bins.debrisMesh);
+    this.minimap.setTrack(this.track);
+    this.setupGrid();
+    this.traffic.reset();
+    this.renderer.compile(this.scene, this.camera.cam);
+  }
+
   resize(): void {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxDpr));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -166,8 +204,9 @@ export class Game {
     this.player.syncMesh();
   }
 
-  startRace(carIndex: number): void {
-    this.bankScore(); // course précédente abandonnée : les points restent acquis
+  startRace(carIndex: number, def: TrackDef, banner?: string): void {
+    this.bankScore();
+    this.loadTrack(def); // course précédente abandonnée : les points restent acquis
     const base = CARS[carIndex] ?? CARS[0];
     const lv = (id: Parameters<typeof Save.level>[0]): number => Save.level(id);
     const spec: CarSpec = {
@@ -215,6 +254,7 @@ export class Game {
     this.hud.show(true);
     this.touch.show(true);
     this.hud.clearMessage();
+    this.hud.toast(banner ?? `${def.name} · ${def.laps} TOURS`, '#2de2ff', 3);
   }
 
   /** Verse le score de la course dans le portefeuille (une seule fois par course). */
@@ -332,13 +372,13 @@ export class Game {
         const lt = this.raceTime - this.lapStart;
         if (this.bestLap === null || lt < this.bestLap) this.bestLap = lt;
         this.lapStart = this.raceTime;
-        if (this.lap < TRACK.laps) {
-          this.hud.message(this.lap === TRACK.laps - 1 ? 'DERNIER TOUR' : `TOUR ${this.lap + 1}`, 1.4, '#2de2ff');
+        if (this.lap < this.laps) {
+          this.hud.message(this.lap === this.laps - 1 ? 'DERNIER TOUR' : `TOUR ${this.lap + 1}`, 1.4, '#2de2ff');
         }
       } else if (racing && this.lap === 0) {
         this.lapStart = this.raceTime;
       }
-      if (racing && this.lap >= TRACK.laps) this.finish();
+      if (racing && this.lap >= this.laps) this.finish();
     } else if (this.prevS < L * 0.25 && s > L * 0.75) {
       this.lap--;
     }
@@ -362,7 +402,7 @@ export class Game {
     for (const ai of this.ais) {
       const aiRacing = this.state === 'race' && !ai.finished;
       ai.update(dt, playerProgress, this.obstacles, aiRacing || (this.state !== 'countdown' && ai.finished));
-      if (!ai.finished && ai.lap >= TRACK.laps) {
+      if (!ai.finished && ai.lap >= this.laps) {
         ai.finished = true;
         ai.finishTime = this.raceTime;
       }
@@ -604,7 +644,7 @@ export class Game {
       let est = false;
       if (ai.finished) time = ai.finishTime;
       else {
-        const remain = TRACK.laps * L - ai.progress;
+        const remain = this.laps * L - ai.progress;
         time = this.raceTime + remain / Math.max(ai.speed, 35);
         est = true;
       }
@@ -615,7 +655,7 @@ export class Game {
       if (b.time === null) return -1;
       return a.time - b.time;
     });
-    const record = busted ? { race: false, lap: false } : Save.submit(playerTime, this.bestLap);
+    const record = busted ? { race: false, lap: false } : Save.submit(this.track.def.id, playerTime, this.bestLap);
     const scoreRecord = Save.submitScore(this.score);
     this.bankScore();
     return {
@@ -629,6 +669,8 @@ export class Game {
       score: this.score,
       scoreRecord,
       wrecks: this.wrecks,
+      trackId: this.track.def.id,
+      trackName: this.track.def.name,
       wallet: Save.wallet,
     };
   }
@@ -677,10 +719,10 @@ export class Game {
         position,
         total: this.ais.length + 1,
         lap: this.lap + 1,
-        laps: TRACK.laps,
+        laps: this.laps,
         time: this.state === 'finished' && this.finishTime !== null ? this.finishTime : this.raceTime,
         lapTime: this.state === 'race' && this.lap >= 0 ? this.raceTime - this.lapStart : 0,
-        bestLap: this.bestLap ?? Save.bestLap,
+        bestLap: this.bestLap ?? Save.bestLap(this.track.def.id),
         nitro: p.nitro,
         nitroActive: p.nitroActive,
         heat: this.police.heat,

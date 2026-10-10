@@ -89,10 +89,27 @@ button.big {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  /* scrollable quand le contenu dépasse (petits téléphones) */
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   gap: 12px;
   padding: calc(12px + var(--sat)) calc(16px + var(--sar)) calc(12px + var(--sab)) calc(16px + var(--sal));
   text-align: center;
+}
+
+/* centrage vertical qui laisse le haut accessible quand ça déborde */
+.screen::before,
+.screen::after {
+  content: '';
+  flex: 1 0 0;
+}
+
+.screen > * {
+  flex-shrink: 0;
 }
 
 .overlay {
@@ -153,10 +170,20 @@ button.big {
 /* ---------------------------------------------------------------- garage */
 .garage {
   background: rgba(8, 10, 22, 0.78);
-  flex-direction: row;
+  gap: 12px;
+}
+
+.garage-top {
+  display: flex;
   flex-wrap: wrap;
-  align-content: center;
-  gap: 14px 22px;
+  justify-content: center;
+  align-items: center;
+  gap: 12px 22px;
+}
+
+.row {
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .cars {
@@ -307,8 +334,6 @@ button.big {
   flex-direction: column;
   gap: 5px;
   width: min(100%, 620px);
-  overflow-y: auto;
-  min-height: 0;
 }
 
 .upg {
@@ -390,6 +415,164 @@ button.big {
 .earn {
   color: #7dff6a;
   font-weight: 800;
+}
+
+/* ---------------------------------------------------------------- circuits / championnat */
+.champ-btn {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #000;
+  box-shadow: 0 0 24px rgba(255, 210, 63, 0.45);
+}
+
+.tracksel,
+.champintro {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.tracksel h2,
+.champintro h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-style: italic;
+}
+
+.track-cards {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.track-card {
+  --c: #fff;
+  width: clamp(130px, 21vw, 180px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  text-align: left;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  min-height: 0;
+}
+
+button.track-card:active {
+  border-color: var(--c);
+  box-shadow: 0 0 16px var(--c);
+}
+
+.track-card svg {
+  width: 100%;
+  height: clamp(60px, 22vh, 100px);
+  margin-bottom: 4px;
+}
+
+.track-card b {
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--c);
+}
+
+.track-card small {
+  font-size: 0.62rem;
+  opacity: 0.75;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.track-card .tc-extra {
+  opacity: 1;
+  color: #fff;
+  font-weight: 800;
+}
+
+.champ-rules {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.champ-rules b {
+  color: #7dff6a;
+}
+
+.res-sub {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--cyan);
+  margin-top: -6px;
+}
+
+.res-cols {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.res-cols .standings {
+  min-width: 0;
+}
+
+.standings caption {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  opacity: 0.7;
+  padding-bottom: 2px;
+}
+
+.standings td.gain {
+  color: #7dff6a;
+  font-weight: 800;
+}
+
+.results {
+  gap: 6px;
+}
+
+.results h2 {
+  font-size: clamp(1.7rem, 6vw, 2.6rem);
+  line-height: 1;
+}
+
+.results .standings {
+  font-size: 0.85rem;
+}
+
+.results .standings td {
+  padding: 1px 10px;
+}
+
+.results .res-info {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.results button {
+  min-height: 46px;
+  padding: 8px 16px;
+}
+
+.results button.big {
+  font-size: 1rem;
+}
+
+.final-title.gold {
+  color: var(--gold);
+}
+
+.final h2 {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 3.4rem);
+  font-style: italic;
+  font-weight: 900;
 }
 
 /* ---------------------------------------------------------------- résultats / pause */
@@ -642,13 +825,14 @@ button.big {
 
 .msg {
   position: absolute;
-  top: 30%;
+  top: calc(84px + var(--sat));
   left: 0;
   right: 0;
   text-align: center;
-  font-size: clamp(2.5rem, 10vw, 5rem);
+  font-size: clamp(1.8rem, 6.5vw, 3.4rem);
   font-style: italic;
   font-weight: 900;
+  line-height: 1.05;
   opacity: 0;
 }
 
@@ -658,12 +842,14 @@ button.big {
 
 .toast {
   position: absolute;
-  top: 52%;
-  left: 0;
-  right: 0;
+  top: calc(56px + var(--sat));
+  /* entre le bloc position/tour et la mini-map */
+  left: calc(150px + var(--sal));
+  right: calc(150px + var(--sar));
   text-align: center;
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-style: italic;
+  line-height: 1.15;
   opacity: 0;
   transition: opacity 0.2s;
 }
