@@ -89,10 +89,15 @@ export class Car {
 
     // Longitudinal
     let a = 0;
-    if (input.throttle > 0 && fwd > -1) {
-      const r = clamp(fwd / maxV, 0, 1);
-      a += spec.accel * input.throttle * (1 - r * r * r);
-      if (this.nitroActive) a += NITRO.boostAccel;
+    if (input.throttle > 0) {
+      if (fwd < -0.5) {
+        // en marche arrière, le gaz freine d'abord jusqu'à l'arrêt, puis on repart en avant
+        a += PHYSICS.brakeDecel * input.throttle;
+      } else {
+        const r = clamp(fwd / maxV, 0, 1);
+        a += spec.accel * input.throttle * (1 - r * r * r);
+        if (this.nitroActive) a += NITRO.boostAccel;
+      }
     }
     if (input.brake > 0) {
       if (fwd > 0.5) a -= PHYSICS.brakeDecel * input.brake * (driftMode ? 0.25 : 1);
