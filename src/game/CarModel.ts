@@ -15,7 +15,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /** Applique une couleur de sommet uniforme et retire les UV (inutiles, pas de textures). */
-function tint(g: BufferGeometry, c: number | [number, number, number]): BufferGeometry {
+export function tint(g: BufferGeometry, c: number | [number, number, number]): BufferGeometry {
   g.deleteAttribute('uv');
   const ng = g.index ? g.toNonIndexed() : g;
   const col = typeof c === 'number' ? new Color(c) : new Color(c[0], c[1], c[2]);

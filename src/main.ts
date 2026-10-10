@@ -120,7 +120,7 @@ function boot(): void {
     inv.textContent = `INVERSER GYRO : ${s.gyroInvert ? 'OUI' : 'NON'}`;
     inv.hidden = s.control !== 'gyro';
     (garage.querySelector('.records') as HTMLElement).innerHTML =
-      `RECORD COURSE <b>${formatTime(Save.bestRace)}</b><br>MEILLEUR TOUR <b>${formatTime(Save.bestLap)}</b>`;
+      `RECORD COURSE <b>${formatTime(Save.bestRace)}</b><br>MEILLEUR TOUR <b>${formatTime(Save.bestLap)}</b><br>RECORD POUBELLES <b>${Save.bestScore}</b>`;
     game.applySettings(s);
   };
 
@@ -265,11 +265,12 @@ function boot(): void {
         </tr>`,
       )
       .join('');
+    const binsLine = `<br>POUBELLES <b>${r.bins}</b> · SCORE <b>${r.score}</b>${r.scoreRecord ? ' <em>RECORD !</em>' : ''}`;
     (results.querySelector('.res-info') as HTMLElement).innerHTML = r.busted
-      ? 'La police vous a coincé. Roulez moins vite… ou semez-les à la nitro !'
+      ? `La police vous a coincé. Roulez moins vite… ou semez-les à la nitro !${binsLine}`
       : `TEMPS <b>${formatTime(r.time)}</b>${r.record.race ? ' <em>NOUVEAU RECORD !</em>' : ''}<br>
          MEILLEUR TOUR <b>${formatTime(r.bestLap)}</b>${r.record.lap ? ' <em>RECORD !</em>' : ''}<br>
-         RECORD COURSE <b>${formatTime(Save.bestRace)}</b>`;
+         RECORD COURSE <b>${formatTime(Save.bestRace)}</b>${binsLine}`;
     show(results);
   }
 

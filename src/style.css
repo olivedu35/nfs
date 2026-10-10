@@ -372,6 +372,46 @@ button.big {
   font-size: 0.95rem;
 }
 
+.score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1rem;
+  color: #7dff6a;
+  font-variant-numeric: tabular-nums;
+}
+
+.score.bump {
+  animation: bump 0.3s ease-out;
+}
+
+@keyframes bump {
+  40% {
+    transform: scale(1.5);
+  }
+}
+
+/* petite poubelle dessinée en CSS */
+.bin-ico {
+  position: relative;
+  width: 12px;
+  height: 15px;
+  margin-top: 3px;
+  background: #7dff6a;
+  border-radius: 1px 1px 3px 3px;
+}
+
+.bin-ico::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: -4px;
+  height: 3px;
+  background: #7dff6a;
+  border-radius: 1px;
+}
+
 .hud-tc {
   position: absolute;
   top: calc(8px + var(--sat));

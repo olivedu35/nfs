@@ -14,6 +14,7 @@ export interface HudState {
   heat: number;
   pursuit: boolean;
   bust: number;
+  score: number;
 }
 
 /** HUD en DOM (aucun texte rendu dans WebGL). N'écrit dans le DOM que si une valeur change. */
@@ -34,6 +35,7 @@ export class Hud {
         <button class="pause" aria-label="Pause">II</button>
         <div class="pos"><span data-k="pos">1</span><small>/<span data-k="total">4</span></small></div>
         <div class="lap">TOUR <span data-k="lap">1</span>/<span data-k="laps">3</span></div>
+        <div class="score"><span class="bin-ico"></span><span data-k="score">0</span></div>
       </div>
       <div class="hud-tc">
         <div class="time" data-k="time">0:00.00</div>
@@ -82,6 +84,7 @@ export class Hud {
 
   update(s: HudState, dt: number): void {
     this.set('speed', String(Math.round(s.speedKmh)));
+    this.set('score', String(s.score));
     this.set('pos', String(s.position));
     this.set('total', String(s.total));
     this.set('lap', String(Math.min(s.laps, Math.max(1, s.lap))));
@@ -125,6 +128,14 @@ export class Hud {
   clearMessage(): void {
     this.msgTimer = 0;
     this.cls('msg', 'show', false);
+  }
+
+  /** Fait « sauter » le compteur de score. */
+  bumpScore(): void {
+    const el = this.el.score.parentElement!;
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
   }
 
   /** Petit message (DRIFT, NEAR MISS…). */

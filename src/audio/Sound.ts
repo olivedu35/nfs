@@ -149,6 +149,26 @@ export class Sound {
     o.stop(t + 0.55);
   }
 
+  /** « Clang » métallique de poubelle : partiels inharmoniques + bruit. */
+  clang(combo: number): void {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const base = 260 + Math.random() * 60 + combo * 40;
+    for (const ratio of [1, 2.76, 5.4]) {
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = base * ratio;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.14 / ratio, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.connect(g).connect(this.master);
+      o.start(t);
+      o.stop(t + 0.4);
+    }
+    this.burst(0.18, 3000, 0.8, 0.35, 'highpass');
+  }
+
   whoosh(): void {
     this.burst(0.25, 1800, 2, 0.25);
   }

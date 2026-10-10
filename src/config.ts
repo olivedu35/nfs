@@ -109,3 +109,14 @@ export const RENDER = {
   fogFar: 280,
   sky: 0x0b0d1a,
 };
+
+export const BINS = {
+  spacing: 26, // m entre deux groupes de poubelles
+  lateralMin: 6.4, // hors des files de l'IA et du trafic, côté trottoir
+  lateralMax: 8.6,
+  points: 100,
+  comboWindow: 2.5, // s pour enchaîner un combo
+  maxCombo: 5,
+  respawnTime: 8, // s avant réapparition (hors de vue)
+  carSlow: 0.97, // facteur de vitesse par poubelle percutée
+};

@@ -36,6 +36,7 @@ vercel --prod        # ou : connecter le dépôt GitHub dans le dashboard Vercel
 - **Gyroscope** (à activer dans le garage) : inclinez le téléphone comme un volant. Sur iOS, le bouton « GYROSCOPE » déclenche la demande d'autorisation. Une option « Inverser gyro » corrige le sens si besoin.
 - **Drift** : FREIN + direction à haute vitesse → la voiture glisse et recharge la nitro.
 - **Nitro** : se recharge en drift et en frôlant le trafic (« NEAR MISS »).
+- **Poubelles** : disséminées sur les bas-côtés. Percutez-les pour marquer 100 points, avec un combo jusqu'à ×5 si vous les enchaînez en moins de 2,5 s. Ça ne sert à rien, mais le record est sauvegardé.
 - **Police** : au-dessus d'environ 150 km/h, la jauge HEAT monte. Pleine, une voiture de police vous prend en chasse. Si elle vous immobilise pendant 3 s : BUSTED. Distancez-la de 260 m pendant 5 s pour la semer.
 
 ## Architecture
@@ -54,6 +55,7 @@ src/
   game/Police.ts       heat, poursuite (dépasse puis bloque), BUSTED / semée
   game/Camera.ts       caméra chase : lerp, shake, FOV dynamique
   game/Trails.ts       traînées lumineuses de la nitro
+  game/Bins.ts         poubelles renversables + déchets (2 InstancedMesh, mini-physique balistique)
   input/TouchControls.ts, input/GyroControls.ts
   ui/Hud.ts            HUD en DOM, écrit seulement quand une valeur change
   ui/Minimap.ts        canvas 2D, tracé pré-rendu

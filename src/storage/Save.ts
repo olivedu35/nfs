@@ -10,6 +10,7 @@ export interface Settings {
 interface SaveData {
   bestRace: number | null;
   bestLap: number | null;
+  bestScore: number;
   settings: Settings;
 }
 
@@ -17,6 +18,7 @@ const KEY = 'nightrush.v1';
 const DEFAULTS: SaveData = {
   bestRace: null,
   bestLap: null,
+  bestScore: 0,
   settings: { control: 'buttons', sound: true, gyroInvert: false, car: 0 },
 };
 
@@ -28,6 +30,7 @@ function load(): SaveData {
     return {
       bestRace: d.bestRace ?? null,
       bestLap: d.bestLap ?? null,
+      bestScore: d.bestScore ?? 0,
       settings: { ...DEFAULTS.settings, ...(d.settings ?? {}) },
     };
   } catch {
@@ -55,6 +58,16 @@ export const Save = {
   },
   get bestRace(): number | null {
     return data.bestRace;
+  },
+  get bestScore(): number {
+    return data.bestScore;
+  },
+  /** Score poubelles : enregistré même en cas de BUSTED (c'est pour le fun). */
+  submitScore(score: number): boolean {
+    if (score <= data.bestScore) return false;
+    data.bestScore = score;
+    persist();
+    return true;
   },
   get bestLap(): number | null {
     return data.bestLap;

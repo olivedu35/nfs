@@ -6,7 +6,7 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
-import { AI, CARS, NITRO, PHYSICS, POLICE, RENDER, TRACK, TRAFFIC } from '../config';
+import { AI, BINS, CARS, NITRO, PHYSICS, POLICE, RENDER, TRACK, TRAFFIC } from '../config';
 import { Sound, vibrate } from '../audio/Sound';
 import { GyroControls } from '../input/GyroControls';
 import { TouchControls } from '../input/TouchControls';
@@ -14,6 +14,7 @@ import { Save, Settings } from '../storage/Save';
 import { Hud } from '../ui/Hud';
 import { MapDot, Minimap } from '../ui/Minimap';
 import { AIDriver, Obstacle } from './AIDriver';
+import { Bins } from './Bins';
 import { ChaseCamera } from './Camera';
 import { Car, DriveInput } from './Car';
 import { Police } from './Police';
@@ -32,6 +33,9 @@ export interface RaceResult {
   bestLap: number | null;
   standings: { name: string; color: string; time: number | null; player: boolean; estimated: boolean }[];
   record: { race: boolean; lap: boolean };
+  bins: number;
+  score: number;
+  scoreRecord: boolean;
 }
 
 const COUNTDOWN = 3;
@@ -52,6 +56,11 @@ export class Game {
   private traffic: Traffic;
   private police: Police;
   private trails = new Trails();
+  private bins: Bins;
+  private score = 0;
+  private binCount = 0;
+  private combo = 0;
+  private lastBinHit = -99;
 
   state: GameState = 'idle';
   paused = false;
@@ -102,6 +111,8 @@ export class Game {
     this.police = new Police(this.track);
     this.scene.add(this.police.mesh);
     this.scene.add(this.trails.mesh);
+    this.bins = new Bins(this.track);
+    this.scene.add(this.bins.mesh, this.bins.debrisMesh);
 
     this.hud = new Hud(ui);
     this.minimap = new Minimap(this.hud.mapSlot, this.track);
@@ -158,6 +169,11 @@ export class Game {
     this.traffic.reset();
     this.police.reset();
     this.trails.reset();
+    this.bins.reset();
+    this.score = 0;
+    this.binCount = 0;
+    this.combo = 0;
+    this.lastBinHit = -99;
     this.lap = -1;
     this.prevS = this.player.proj.s;
     this.raceTime = 0;
@@ -347,6 +363,7 @@ export class Game {
     }
 
     this.collisions(dt, racing);
+    this.hitBins(dt, racing);
 
     if (player.wallImpact > 0) {
       if (player.wallImpact > 6) {
@@ -468,6 +485,32 @@ export class Game {
     }
   }
 
+  /** Poubelles : la voiture du joueur marque des points, l'IA les renverse gratuitement. */
+  private hitBins(dt: number, racing: boolean): void {
+    const p = this.player;
+    for (const ai of this.ais) this.bins.collide(ai.x, ai.z, ai.h, ai.vx, ai.vz);
+    if (this.police.active) this.bins.collide(this.police.x, this.police.z, this.police.h, this.police.vx, this.police.vz);
+    const hits = this.state === 'countdown' ? 0 : this.bins.collide(p.x, p.z, p.h, p.vx, p.vz);
+    this.bins.update(dt, p.x, p.z);
+    if (hits === 0) return;
+    for (let k = 0; k < hits; k++) {
+      p.vx *= BINS.carSlow;
+      p.vz *= BINS.carSlow;
+      const now = this.raceTime + this.endTimer;
+      this.combo = now - this.lastBinHit < BINS.comboWindow ? Math.min(BINS.maxCombo, this.combo + 1) : 1;
+      this.lastBinHit = now;
+      if (!racing) continue; // après l'arrivée : ça vole toujours, mais ça ne compte plus
+      const pts = BINS.points * this.combo;
+      this.score += pts;
+      this.binCount++;
+      this.hud.toast(this.combo > 1 ? `POUBELLE ! +${pts} ×${this.combo}` : `POUBELLE ! +${pts}`, '#7dff6a');
+      this.hud.bumpScore();
+    }
+    this.sound.clang(this.combo);
+    this.camera.shake(0.12);
+    vibrate(25);
+  }
+
   private finish(): void {
     this.state = 'finished';
     this.finishTime = this.raceTime;
@@ -516,6 +559,7 @@ export class Game {
       return a.time - b.time;
     });
     const record = busted ? { race: false, lap: false } : Save.submit(playerTime, this.bestLap);
+    const scoreRecord = Save.submitScore(this.score);
     return {
       busted,
       position: busted ? 0 : rows.findIndex((r) => r.player) + 1,
@@ -523,6 +567,9 @@ export class Game {
       bestLap: this.bestLap,
       standings: rows,
       record,
+      bins: this.binCount,
+      score: this.score,
+      scoreRecord,
     };
   }
 
@@ -532,6 +579,7 @@ export class Game {
     p.syncMesh();
     for (const ai of this.ais) ai.syncMesh();
     this.traffic.sync();
+    this.bins.sync();
     this.police.syncMesh(dt);
 
     const ratio = clamp(p.speed / p.spec.maxSpeed, 0, 1.3);
@@ -578,6 +626,7 @@ export class Game {
         heat: this.police.heat,
         pursuit: this.police.active,
         bust: this.police.bustTimer / POLICE.bustTime,
+        score: this.score,
       },
       dt,
     );
