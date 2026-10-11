@@ -1,3 +1,5 @@
+import { RAMP } from '../config';
+import { clamp } from './rng';
 import { Track, TrackSample } from './Track';
 
 const tmp: TrackSample = { x: 0, z: 0, tx: 0, tz: 1, rx: -1, rz: 0 };
@@ -18,6 +20,10 @@ export class RailBody {
   h = 0;
   vx = 0;
   vz = 0;
+  /** hauteur au-dessus de la route (tremplin) */
+  y = 0;
+  vy = 0;
+  private onRamp = false;
 
   /** modifiable : un même véhicule est réutilisé d'un circuit à l'autre */
   constructor(public track: Track) {}
@@ -31,6 +37,9 @@ export class RailBody {
     this.lane = lane;
     this.lap = lap;
     this.laneVel = 0;
+    this.y = 0;
+    this.vy = 0;
+    this.onRamp = false;
     this.updatePose(0);
   }
 
@@ -62,5 +71,32 @@ export class RailBody {
     const base = Math.atan2(p.tx, p.tz);
     const slip = Math.atan2(this.laneVel, Math.max(this.speed, 5));
     this.h = base - slip;
+    if (dt > 0) this.applyRamp(dt);
+  }
+
+  /** Tremplins : suit la pente en montant, puis décolle en bout de rampe (gravité ensuite). */
+  private applyRamp(dt: number): void {
+    const zone = this.track.rampZoneAt(this.s);
+    if (zone) {
+      let d = this.s - zone.s0;
+      if (d < 0) d += this.track.length;
+      const t = clamp(d / RAMP.length, 0, 1);
+      this.y = t * t * RAMP.height;
+      this.vy = 0;
+      this.onRamp = true;
+      return;
+    }
+    if (this.onRamp) {
+      this.onRamp = false;
+      if (this.speed > RAMP.minSpeed) this.vy = RAMP.launchSpeed;
+    }
+    if (this.y > 0 || this.vy !== 0) {
+      this.vy -= RAMP.gravity * dt;
+      this.y += this.vy * dt;
+      if (this.y <= 0) {
+        this.y = 0;
+        this.vy = 0;
+      }
+    }
   }
 }

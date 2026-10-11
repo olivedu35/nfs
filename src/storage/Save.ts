@@ -12,6 +12,7 @@ export interface Settings {
 interface TrackRecord {
   race: number | null;
   lap: number | null;
+  air: number | null;
 }
 
 interface SaveData {
@@ -41,7 +42,7 @@ function load(): SaveData {
     const records = d.records ?? {};
     // migration v1 : les anciens records globaux appartiennent au circuit d'origine
     if (!d.records && (d.bestRace != null || d.bestLap != null)) {
-      records.downtown = { race: d.bestRace ?? null, lap: d.bestLap ?? null };
+      records.downtown = { race: d.bestRace ?? null, lap: d.bestLap ?? null, air: null };
     }
     return {
       records,
@@ -125,7 +126,7 @@ export const Save = {
   /** Enregistre les temps et renvoie ce qui a été battu. */
   submit(track: string, race: number | null, lap: number | null): { race: boolean; lap: boolean } {
     const res = { race: false, lap: false };
-    const rec = (data.records[track] ??= { race: null, lap: null });
+    const rec = (data.records[track] ??= { race: null, lap: null, air: null });
     if (race !== null && (rec.race === null || race < rec.race)) {
       rec.race = race;
       res.race = true;
@@ -136,6 +137,18 @@ export const Save = {
     }
     persist();
     return res;
+  },
+  bestAir(track: string): number | null {
+    return data.records[track]?.air ?? null;
+  },
+  /** Record de temps en l'air sur un tremplin ; renvoie true si battu. */
+  submitAir(track: string, airTime: number): boolean {
+    const rec = (data.records[track] ??= { race: null, lap: null, air: null });
+    const prev = rec.air ?? null;
+    if (prev !== null && airTime <= prev) return false;
+    rec.air = airTime;
+    persist();
+    return true;
   },
 };
 

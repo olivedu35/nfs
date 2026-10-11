@@ -6,7 +6,7 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
-import { AI, BINS, CARS, CarSpec, DAMAGE, NITRO, PHYSICS, POLICE, RENDER, TRACK, TRAFFIC, UPGRADE_FX } from '../config';
+import { AI, BINS, CARS, CarSpec, DAMAGE, NITRO, PHYSICS, POLICE, RAMP, RENDER, TRACK, TRAFFIC, UPGRADE_FX } from '../config';
 import { Sound, vibrate } from '../audio/Sound';
 import { GyroControls } from '../input/GyroControls';
 import { TouchControls } from '../input/TouchControls';
@@ -426,6 +426,24 @@ export class Game {
     // Drift → nitro
     if (racing && player.drifting) {
       player.nitro = Math.min(1, player.nitro + NITRO.driftCharge * this.nitroChargeMul * dt);
+    }
+
+    // Tremplin → nitro (chaque seconde passée en l'air remplit la jauge)
+    if (racing && player.y > 0) {
+      player.nitro = Math.min(1, player.nitro + RAMP.nitroPerSecond * dt);
+    }
+    if (player.justLanded) {
+      player.justLanded = false;
+      if (racing && player.lastAirTime > 0.3) {
+        const record = Save.submitAir(this.track.def.id, player.lastAirTime);
+        if (record) {
+          this.hud.toast(`RECORD EN L'AIR : ${player.lastAirTime.toFixed(2)}s !`, '#ffd23f', 2.2);
+          vibrate([40, 30, 80]);
+        } else {
+          this.hud.toast(`SAUT : ${player.lastAirTime.toFixed(2)}s`, '#2de2ff');
+        }
+        this.camera.shake(0.15);
+      }
     }
 
     // IA

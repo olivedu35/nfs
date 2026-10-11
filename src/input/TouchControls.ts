@@ -14,11 +14,11 @@ export class TouchControls {
     this.root.className = 'controls';
     this.root.innerHTML = `
       <div class="pad pad-left">
+        <div class="btn nitro" data-id="nitro">NITRO</div>
         <div class="btn steer" data-id="left">◀</div>
         <div class="btn steer" data-id="right">▶</div>
       </div>
       <div class="pad pad-right">
-        <div class="btn nitro" data-id="nitro">NITRO</div>
         <div class="btn brake" data-id="brake">FREIN</div>
         <div class="btn gas" data-id="gas">GAZ</div>
       </div>`;

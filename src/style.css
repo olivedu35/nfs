@@ -1053,8 +1053,8 @@ button.track-card:active {
 
 .nitro {
   position: absolute;
-  right: 0;
-  bottom: calc(clamp(110px, 40vh, 170px) + 12px);
+  left: 0;
+  bottom: calc(clamp(72px, 22vh, 104px) + 12px);
   width: clamp(84px, 14vw, 116px);
   height: 64px;
   background: rgba(45, 226, 255, 0.18);

@@ -57,6 +57,15 @@ export const NITRO = {
   fovBoost: 14,
 };
 
+export const RAMP = {
+  length: 11, // m, longueur de la montée du tremplin
+  height: 2.2, // m, hauteur en bout de tremplin
+  minSpeed: 14, // m/s, vitesse mini pour décoller proprement
+  launchSpeed: 12, // m/s, vitesse verticale au décollage
+  gravity: 18, // m/s²
+  nitroPerSecond: 0.5, // remplissage de la jauge nitro par seconde passée en l'air
+};
+
 export const AI = {
   count: 3,
   names: ['RAZOR', 'NOVA', 'GHOST'],

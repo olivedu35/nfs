@@ -24,6 +24,8 @@ export interface TrackDef {
   seed: number;
   points: [number, number][];
   theme: TrackTheme;
+  /** position des tremplins, en fraction (0..1) de la longueur du tour */
+  ramps?: number[];
 }
 
 export const TRACKS: TrackDef[] = [
@@ -38,6 +40,7 @@ export const TRACKS: TrackDef[] = [
       [120, 230], [130, 320], [60, 370], [-60, 360], [-130, 300], [-120, 200],
       [-190, 140], [-210, 50], [-140, -20], [-60, -10],
     ],
+    ramps: [0.09, 0.52],
     theme: {
       sky: 0x0b0d1a, ground: 0x14151e, road: 0x3b3d4a, wall: 0x7a7f96, strip: 0x2de2ff,
       banner: 0xff2d55, lamp: 0xffd9a0, pool: 0x5a4628,
@@ -56,6 +59,7 @@ export const TRACKS: TrackDef[] = [
       [230, 300], [180, 360], [60, 350], [-40, 300], [-60, 200], [-140, 170],
       [-170, 90], [-120, 20],
     ],
+    ramps: [0.16, 0.58],
     theme: {
       sky: 0x07151a, ground: 0x10181a, road: 0x363f42, wall: 0x8a7a5a, strip: 0xffb02d,
       banner: 0x2d7bff, lamp: 0xffb070, pool: 0x5a3a18,
@@ -74,6 +78,7 @@ export const TRACKS: TrackDef[] = [
       [110, 270], [30, 295], [-50, 265], [-65, 200], [-130, 170], [-150, 95],
       [-100, 50], [-70, 10],
     ],
+    ramps: [0.22, 0.64],
     theme: {
       sky: 0x1a0812, ground: 0x1a1216, road: 0x3e3438, wall: 0x8a4a4a, strip: 0xff2dd5,
       banner: 0xffd23f, lamp: 0xff8a6b, pool: 0x5a2020,
@@ -91,6 +96,7 @@ export const TRACKS: TrackDef[] = [
       [0, 0], [300, -20], [500, 60], [560, 220], [480, 380], [300, 420], [160, 360],
       [60, 420], [-120, 400], [-220, 280], [-200, 120], [-120, 30],
     ],
+    ramps: [0.07, 0.4, 0.73],
     theme: {
       sky: 0x0e0a22, ground: 0x121222, road: 0x34364a, wall: 0x6a6a8a, strip: 0xffd23f,
       banner: 0x9b5cff, lamp: 0xc8d8ff, pool: 0x2a3050,

@@ -21,10 +21,12 @@ import {
   DoubleSide,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { AI, TRACK } from '../config';
+import { AI, RAMP, TRACK } from '../config';
 import { TrackDef, TrackTheme, trackCurve } from './tracks';
 import { mulberry32 } from './rng';
 
+const RAMP_COLOR = 0xffb020;
+const RAMP_SIDE_COLOR = 0x2a2416;
 
 export interface TrackSample {
   x: number;
@@ -43,6 +45,12 @@ export interface Projection {
   lateral: number;
 }
 
+/** Zone de tremplin : s0 = pied de la montée, s1 = bout (décollage). */
+export interface RampZone {
+  s0: number;
+  s1: number;
+}
+
 export class Track {
   readonly n = TRACK.samples;
   readonly px = new Float32Array(this.n);
@@ -58,6 +66,7 @@ export class Track {
   readonly maxX: number;
   readonly minZ: number;
   readonly maxZ: number;
+  readonly ramps: RampZone[];
 
   readonly theme: TrackTheme;
 
@@ -83,8 +92,23 @@ export class Track {
       minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
     }
     this.minX = minX; this.maxX = maxX; this.minZ = minZ; this.maxZ = maxZ;
+    this.ramps = (def.ramps ?? []).map((frac) => {
+      const s1 = this.wrapS(frac * this.length);
+      const s0 = this.wrapS(s1 - RAMP.length);
+      return { s0, s1 };
+    });
     this.computeAdvisory();
     this.buildMeshes();
+  }
+
+  /** Zone de tremplin contenant s, ou null. */
+  rampZoneAt(s: number): RampZone | null {
+    for (const r of this.ramps) {
+      if (r.s0 <= r.s1) {
+        if (s >= r.s0 && s <= r.s1) return r;
+      } else if (s >= r.s0 || s <= r.s1) return r;
+    }
+    return null;
   }
 
   private computeAdvisory(): void {
@@ -274,6 +298,54 @@ export class Track {
     this.buildGantry();
     this.buildLamps();
     this.buildBuildings();
+    this.buildRamps();
+  }
+
+  /** Tremplins : rampe qui monte depuis la route jusqu'à RAMP.height, striée pour la visibilité. */
+  private buildRamps(): void {
+    if (this.ramps.length === 0) return;
+    const hw = TRACK.halfWidth - 0.3;
+    const segs = 14;
+    const top: number[] = [];
+    const sides: number[] = [];
+    const samp: TrackSample = { x: 0, z: 0, tx: 0, tz: 1, rx: -1, rz: 0 };
+    for (const r of this.ramps) {
+      const pts: { x: number; y: number; z: number; rx: number; rz: number }[] = [];
+      for (let i = 0; i <= segs; i++) {
+        const s = this.wrapS(r.s0 + (RAMP.length * i) / segs);
+        this.sampleAt(s, samp);
+        pts.push({ x: samp.x, y: (i / segs) ** 2 * RAMP.height, z: samp.z, rx: samp.rx, rz: samp.rz });
+      }
+      for (let i = 0; i < segs; i++) {
+        const a = pts[i], b = pts[i + 1];
+        const al = [a.x - a.rx * hw, a.y, a.z - a.rz * hw];
+        const ar = [a.x + a.rx * hw, a.y, a.z + a.rz * hw];
+        const bl = [b.x - b.rx * hw, b.y, b.z - b.rz * hw];
+        const br = [b.x + b.rx * hw, b.y, b.z + b.rz * hw];
+        top.push(...al, ...ar, ...bl, ...ar, ...br, ...bl);
+        const alg = [al[0], 0, al[2]];
+        const blg = [bl[0], 0, bl[2]];
+        sides.push(...alg, ...al, ...blg, ...al, ...bl, ...blg);
+        const arg = [ar[0], 0, ar[2]];
+        const brg = [br[0], 0, br[2]];
+        sides.push(...arg, ...brg, ...ar, ...ar, ...brg, ...br);
+      }
+      // paroi verticale au bout du tremplin (le décollage)
+      const last = pts[segs];
+      const ll = [last.x - last.rx * hw, 0, last.z - last.rz * hw];
+      const lr = [last.x + last.rx * hw, 0, last.z + last.rz * hw];
+      const ul = [last.x - last.rx * hw, last.y, last.z - last.rz * hw];
+      const ur = [last.x + last.rx * hw, last.y, last.z + last.rz * hw];
+      sides.push(...ll, ...lr, ...ul, ...lr, ...ur, ...ul);
+    }
+    const topGeo = new BufferGeometry();
+    topGeo.setAttribute('position', new BufferAttribute(new Float32Array(top), 3));
+    topGeo.computeVertexNormals();
+    this.group.add(new Mesh(topGeo, new MeshLambertMaterial({ color: RAMP_COLOR, side: DoubleSide })));
+    const sideGeo = new BufferGeometry();
+    sideGeo.setAttribute('position', new BufferAttribute(new Float32Array(sides), 3));
+    sideGeo.computeVertexNormals();
+    this.group.add(new Mesh(sideGeo, new MeshLambertMaterial({ color: RAMP_SIDE_COLOR, side: DoubleSide })));
   }
 
   private buildWalls(offset: number, height: number, base = 0): BufferGeometry {

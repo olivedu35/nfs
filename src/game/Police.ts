@@ -180,7 +180,7 @@ export class Police extends RailBody {
     if (!this.active) return;
     this.blink += dt;
     if (this.wrecked) {
-      this.mesh.position.set(this.x, 0, this.z);
+      this.mesh.position.set(this.x, this.y, this.z);
       this.mesh.rotation.set(0, this.h + Math.min(1, this.wreckTimer) * 0.6, 0.12);
       this.smoke.forEach((p, i) => {
         const t = (this.blink * 0.8 + i / this.smoke.length) % 1;
@@ -193,7 +193,8 @@ export class Police extends RailBody {
     const on = Math.floor(this.blink * 8) % 2 === 0;
     this.red.color.setHex(on ? 0xff1020 : 0x220000);
     this.blue.color.setHex(on ? 0x000822 : 0x1050ff);
-    this.mesh.position.set(this.x, 0, this.z);
+    this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.y = this.h;
+    this.mesh.rotation.x = clamp(this.vy * 0.025, -0.35, 0.35);
   }
 }

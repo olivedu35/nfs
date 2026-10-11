@@ -2,6 +2,7 @@ import { Color, Object3D } from 'three';
 import { TRAFFIC } from '../config';
 import { createCarInstances } from './CarModel';
 import { RailBody } from './Rail';
+import { clamp } from './rng';
 import { Track } from './Track';
 
 export class TrafficCar extends RailBody {
@@ -59,8 +60,8 @@ export class Traffic {
   sync(): void {
     const d = this.dummy;
     this.cars.forEach((c, i) => {
-      d.position.set(c.x, 0, c.z);
-      d.rotation.set(0, c.h, 0);
+      d.position.set(c.x, c.y, c.z);
+      d.rotation.set(clamp(c.vy * 0.025, -0.35, 0.35), c.h, 0);
       d.updateMatrix();
       this.meshes.body.setMatrixAt(i, d.matrix);
       this.meshes.lights.setMatrixAt(i, d.matrix);

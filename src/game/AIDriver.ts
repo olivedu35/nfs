@@ -102,7 +102,8 @@ export class AIDriver extends RailBody {
   }
 
   syncMesh(): void {
-    this.mesh.position.set(this.x, 0, this.z);
+    this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.y = this.h;
+    this.mesh.rotation.x = clamp(this.vy * 0.025, -0.35, 0.35);
   }
 }

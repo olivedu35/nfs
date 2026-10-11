@@ -1,5 +1,5 @@
 import { Group } from 'three';
-import { CarSpec, NITRO, PHYSICS, TRACK } from '../config';
+import { CarSpec, NITRO, PHYSICS, RAMP, TRACK } from '../config';
 import { clamp } from './rng';
 import { Projection, Track } from './Track';
 import { createCarMesh } from './CarModel';
@@ -25,6 +25,16 @@ export class Car {
   h = 0;
   vx = 0;
   vz = 0;
+  /** hauteur au-dessus de la route (tremplin) */
+  y = 0;
+  vy = 0;
+  /** temps (s) passé en l'air pendant le saut en cours */
+  airTime = 0;
+  /** durée du dernier saut ; lue puis remise à 0 par le jeu */
+  lastAirTime = 0;
+  /** signalé à l'instant de l'atterrissage ; lu puis remis à false par le jeu */
+  justLanded = false;
+  private onRamp = false;
   steer = 0;
   nitro = NITRO.start;
   nitroActive = false;
@@ -58,6 +68,12 @@ export class Car {
     this.nitro = NITRO.start;
     this.nitroActive = false;
     this.drifting = false;
+    this.y = 0;
+    this.vy = 0;
+    this.airTime = 0;
+    this.lastAirTime = 0;
+    this.justLanded = false;
+    this.onRamp = false;
     track.project(x, z, -1, this.proj);
   }
 
@@ -142,6 +158,38 @@ export class Car {
     this.z += this.vz * dt;
 
     this.collideWalls(track);
+    this.applyRamp(dt, track);
+  }
+
+  /** Tremplins : la voiture suit la pente en montant, puis décolle en bout de rampe. */
+  private applyRamp(dt: number, track: Track): void {
+    const zone = track.rampZoneAt(this.proj.s);
+    if (zone) {
+      let d = this.proj.s - zone.s0;
+      if (d < 0) d += track.length;
+      const t = clamp(d / RAMP.length, 0, 1);
+      this.y = t * t * RAMP.height;
+      this.vy = 0;
+      this.airTime = 0;
+      this.onRamp = true;
+      return;
+    }
+    if (this.onRamp) {
+      this.onRamp = false;
+      if (this.forwardSpeed > RAMP.minSpeed) this.vy = RAMP.launchSpeed;
+    }
+    if (this.y > 0 || this.vy !== 0) {
+      this.vy -= RAMP.gravity * dt;
+      this.y += this.vy * dt;
+      this.airTime += dt;
+      if (this.y <= 0) {
+        this.y = 0;
+        this.vy = 0;
+        this.lastAirTime = this.airTime;
+        this.airTime = 0;
+        this.justLanded = true;
+      }
+    }
   }
 
   private collideWalls(track: Track): void {
@@ -173,9 +221,11 @@ export class Car {
   }
 
   syncMesh(): void {
-    this.mesh.position.set(this.x, 0, this.z);
+    this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.set(0, this.h, 0);
     // petit roulis visuel
     this.mesh.rotation.z = -this.steer * clamp(this.speed / 60, 0, 1) * 0.05;
+    // tangage en tremplin / en l'air
+    this.mesh.rotation.x = clamp(this.vy * 0.025, -0.35, 0.35);
   }
 }
