@@ -13,6 +13,7 @@ import {
   MeshLambertMaterial,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { CarCosmetics, STOCK_COSMETICS } from '../config';
 
 /** Applique une couleur de sommet uniforme et retire les UV (inutiles, pas de textures). */
 export function tint(g: BufferGeometry, c: number | [number, number, number]): BufferGeometry {
@@ -36,7 +37,6 @@ function buildBody(): BufferGeometry {
     tint(new BoxGeometry(1.86, 0.18, 1.2).translate(0, 0.86, 1.4), WHITE), // capot
     tint(new BoxGeometry(1.62, 0.46, 1.9).translate(0, 1.03, -0.3), GLASS),
     tint(new BoxGeometry(1.56, 0.07, 1.6).translate(0, 1.29, -0.35), WHITE), // toit
-    tint(new BoxGeometry(1.84, 0.07, 0.42).translate(0, 1.08, -1.95), WHITE), // aileron
     tint(new BoxGeometry(0.08, 0.26, 0.2).translate(0.6, 0.9, -1.95), TYRE),
     tint(new BoxGeometry(0.08, 0.26, 0.2).translate(-0.6, 0.9, -1.95), TYRE),
   ];
@@ -46,6 +46,72 @@ function buildBody(): BufferGeometry {
     }
   }
   return mergeGeometries(parts);
+}
+
+// ---------------------------------------------------------------- esthétique (boutique)
+
+/** Aileron : « stock »/« gt » reprennent la couleur de la carrosserie (tint WHITE), « drift » est carbone fixe. */
+function buildSpoiler(id: string): { geo: BufferGeometry; carColored: boolean } {
+  switch (id) {
+    case 'gt':
+      return {
+        geo: mergeGeometries([
+          tint(new BoxGeometry(1.92, 0.08, 0.48).translate(0, 1.24, -2.0), WHITE),
+          tint(new BoxGeometry(0.1, 0.3, 0.12).translate(0.8, 1.02, -1.92), WHITE),
+          tint(new BoxGeometry(0.1, 0.3, 0.12).translate(-0.8, 1.02, -1.92), WHITE),
+        ]),
+        carColored: true,
+      };
+    case 'drift':
+      return {
+        geo: mergeGeometries([
+          tint(new BoxGeometry(2.1, 0.08, 0.56).translate(0, 1.4, -2.05), 0x15161c),
+          tint(new BoxGeometry(0.12, 0.42, 0.14).translate(0.88, 1.12, -1.95), 0x15161c),
+          tint(new BoxGeometry(0.12, 0.42, 0.14).translate(-0.88, 1.12, -1.95), 0x15161c),
+        ]),
+        carColored: false,
+      };
+    default: // 'stock' : le petit aileron d'origine
+      return { geo: tint(new BoxGeometry(1.84, 0.07, 0.42).translate(0, 1.08, -1.95), WHITE), carColored: true };
+  }
+}
+
+/** Pot d'échappement : toujours métal/chromé, jamais teinté par la couleur de la voiture. */
+function buildExhaust(id: string): BufferGeometry {
+  const pipe = (x: number, r: number, len: number): BufferGeometry =>
+    new CylinderGeometry(r, r, len, 8).rotateX(Math.PI / 2).translate(x, 0.22, -2.1 - len / 2);
+  switch (id) {
+    case 'dual':
+      return mergeGeometries([tint(pipe(0.5, 0.08, 0.32), 0xcfd3dc), tint(pipe(-0.5, 0.08, 0.32), 0xcfd3dc)]);
+    case 'chrome':
+      return tint(pipe(0, 0.17, 0.4), 0xf2f4fa);
+    default: // 'stock'
+      return tint(pipe(0.45, 0.065, 0.26), 0x3a3a40);
+  }
+}
+
+/** Stickers : fines plaques collées sur la carrosserie, couleur fixe (jamais teintées par la voiture). */
+function buildSticker(id: string): BufferGeometry | null {
+  switch (id) {
+    case 'stripes': {
+      const parts: BufferGeometry[] = [];
+      for (const x of [-0.22, 0.22]) {
+        parts.push(tint(new BoxGeometry(0.14, 0.012, 1.1).translate(x, 0.957, 1.4), 0xf4f6ff)); // capot
+        parts.push(tint(new BoxGeometry(0.14, 0.012, 1.55).translate(x, 1.327, -0.35), 0xf4f6ff)); // toit
+      }
+      return mergeGeometries(parts);
+    }
+    case 'flames':
+      return mergeGeometries(
+        [-1, 1].map((s) => tint(new BoxGeometry(0.025, 0.16, 3.2).translate(s * 0.963, 0.62, -0.2), 0xff6a1a)),
+      );
+    case 'tribal':
+      return mergeGeometries(
+        [-1, 1].map((s) => tint(new BoxGeometry(0.025, 0.1, 2.6).translate(s * 0.963, 0.78, -0.3), 0x2de2ff)),
+      );
+    default: // 'none'
+      return null;
+  }
 }
 
 function buildLights(): BufferGeometry {
@@ -89,11 +155,21 @@ export const beamMat = new MeshBasicMaterial({
   side: DoubleSide,
 });
 
-export function createCarMesh(color: number): Group {
+const neutralMat = new MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+
+export function createCarMesh(color: number, cosmetics: CarCosmetics = STOCK_COSMETICS): Group {
   const g = new Group();
-  g.add(new Mesh(CarGeo.body, new MeshLambertMaterial({ color, vertexColors: true })));
+  const carMat = new MeshLambertMaterial({ color, vertexColors: true });
+  g.add(new Mesh(CarGeo.body, carMat));
   g.add(new Mesh(CarGeo.lights, lightMat));
   g.add(new Mesh(CarGeo.beam, beamMat));
+
+  const spoiler = buildSpoiler(cosmetics.spoiler);
+  g.add(new Mesh(spoiler.geo, spoiler.carColored ? carMat : neutralMat));
+  g.add(new Mesh(buildExhaust(cosmetics.exhaust), neutralMat));
+  const sticker = buildSticker(cosmetics.sticker);
+  if (sticker) g.add(new Mesh(sticker, neutralMat));
+
   return g;
 }
 

@@ -1,6 +1,46 @@
 // Toute la configuration gameplay est centralisée ici pour faciliter l'équilibrage.
 // Unités : mètres, secondes, m/s (affichage km/h = m/s × 3.6).
 
+// ---------------------------------------------------------------- esthétique
+export type CosmeticSlot = 'spoiler' | 'exhaust' | 'sticker';
+
+export interface CosmeticOption {
+  id: string;
+  name: string;
+  cost: number; // 0 = débloqué d'office (premier choix de chaque catégorie)
+}
+
+/** Le premier choix de chaque catégorie est toujours gratuit : c'est l'apparence d'origine. */
+export const COSMETICS: Record<CosmeticSlot, CosmeticOption[]> = {
+  spoiler: [
+    { id: 'stock', name: 'AILERON D’ORIGINE', cost: 0 },
+    { id: 'gt', name: 'AILERON GT', cost: 1500 },
+    { id: 'drift', name: 'AILERON DRIFT', cost: 3000 },
+  ],
+  exhaust: [
+    { id: 'stock', name: 'ÉCHAPPEMENT D’ORIGINE', cost: 0 },
+    { id: 'dual', name: 'DOUBLE SORTIE', cost: 1200 },
+    { id: 'chrome', name: 'GROS CHROME', cost: 2200 },
+  ],
+  sticker: [
+    { id: 'none', name: 'AUCUN STICKER', cost: 0 },
+    { id: 'stripes', name: 'BANDES DE COURSE', cost: 900 },
+    { id: 'flames', name: 'FLAMMES', cost: 1800 },
+    { id: 'tribal', name: 'TRIBAL', cost: 1800 },
+  ],
+};
+
+export const COSMETIC_SLOTS: { slot: CosmeticSlot; label: string }[] = [
+  { slot: 'spoiler', label: 'AILERON' },
+  { slot: 'exhaust', label: 'ÉCHAPPEMENT' },
+  { slot: 'sticker', label: 'STICKERS' },
+];
+
+export type CarCosmetics = Record<CosmeticSlot, string>;
+
+/** Apparence d'origine : toujours possédée, utilisée par défaut (IA, police…). */
+export const STOCK_COSMETICS: CarCosmetics = { spoiler: 'stock', exhaust: 'stock', sticker: 'none' };
+
 export interface CarSpec {
   id: string;
   name: string;
@@ -10,6 +50,7 @@ export interface CarSpec {
   handling: number; // vitesse de lacet max (rad/s)
   grip: number; // amortissement de la vitesse latérale (1/s)
   stats: { speed: number; accel: number; handling: number }; // 0..1 pour l'affichage
+  cosmetics?: CarCosmetics;
 }
 
 export const CARS: CarSpec[] = [

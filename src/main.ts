@@ -1,6 +1,6 @@
 import './style.css';
 import { registerSW } from 'virtual:pwa-register';
-import { CARS, UPGRADES, UPGRADE_COSTS, UpgradeId } from './config';
+import { CARS, COSMETIC_SLOTS, COSMETICS, CosmeticSlot, UPGRADES, UPGRADE_COSTS, UpgradeId } from './config';
 import { CHAMP_BONUS, CHAMP_POINTS, Championship } from './game/Championship';
 import { Game, RaceResult } from './game/Game';
 import { TRACKS, TrackDef, trackById, trackSvg } from './game/tracks';
@@ -117,6 +117,7 @@ function boot(): void {
       </div>
       <div class="row">
         <button class="shop-btn">BOUTIQUE · <span class="wallet-n"></span> PTS</button>
+        <button class="shop-btn cust-btn">PERSO ▶</button>
         <button class="big go">COURSE ▶</button>
         <button class="big champ-btn">CHAMPIONNAT ★</button>
       </div>
@@ -296,6 +297,73 @@ function boot(): void {
   };
   garage.querySelector('.shop-btn')!.addEventListener('click', () => openShop(garage));
 
+  // Personnalisation (esthétique : aileron, échappement, stickers — par voiture)
+  const customize = h(`<div class="screen overlay customize" hidden>
+      <div class="shop-head"><button data-a="back">◀ GARAGE</button><h2>PERSONNALISATION</h2><div class="wallet"></div></div>
+      <div class="cust-car-name"></div>
+      <div class="cust-slots"></div>
+    </div>`);
+  ui.appendChild(customize);
+  const custSlots = customize.querySelector('.cust-slots') as HTMLDivElement;
+  for (const { slot, label } of COSMETIC_SLOTS) {
+    custSlots.appendChild(
+      h(`<div class="cust-slot">
+        <label>${label}</label>
+        <div class="cust-opts">
+          ${COSMETICS[slot]
+            .map(
+              (o) => `<button class="cust-opt" data-slot="${slot}" data-id="${o.id}">
+                <b>${o.name}</b><small></small>
+              </button>`,
+            )
+            .join('')}
+        </div>
+      </div>`),
+    );
+  }
+  const refreshCustomize = (): void => {
+    const car = Save.settings.car;
+    (customize.querySelector('.cust-car-name') as HTMLElement).textContent = CARS[car].name;
+    (customize.querySelector('.wallet') as HTMLElement).innerHTML = `<span class="bin-ico"></span>${fmt(Save.wallet)} PTS`;
+    customize.querySelectorAll<HTMLButtonElement>('.cust-opt').forEach((btn) => {
+      const slot = btn.dataset.slot as CosmeticSlot;
+      const id = btn.dataset.id!;
+      const opt = COSMETICS[slot].find((o) => o.id === id)!;
+      const owned = Save.ownsCosmetic(slot, id);
+      const equipped = Save.equippedCosmetic(car, slot) === id;
+      btn.classList.toggle('owned', owned);
+      btn.classList.toggle('equipped', equipped);
+      (btn.querySelector('small') as HTMLElement).textContent = equipped
+        ? 'ÉQUIPÉ'
+        : owned
+          ? 'POSSÉDÉ'
+          : `${fmt(opt.cost)} PTS`;
+      btn.disabled = equipped || (!owned && Save.wallet < opt.cost);
+    });
+  };
+  custSlots.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.cust-opt');
+    if (!btn || btn.disabled) return;
+    const slot = btn.dataset.slot as CosmeticSlot;
+    const id = btn.dataset.id!;
+    const car = Save.settings.car;
+    if (!Save.ownsCosmetic(slot, id)) {
+      if (!Save.buyCosmetic(slot, id)) return;
+      game.sound.unlock();
+      game.sound.clang(3);
+    }
+    Save.equipCosmetic(car, slot, id);
+    refreshCustomize();
+  });
+  customize.querySelector('[data-a="back"]')!.addEventListener('click', () => {
+    refreshGarage();
+    show(garage);
+  });
+  garage.querySelector('.cust-btn')!.addEventListener('click', () => {
+    refreshCustomize();
+    show(customize);
+  });
+
   // Choix du circuit (course simple)
   const trackCard = (t: TrackDef, extra: string, tag: 'button' | 'div' = 'button'): string => {
     const strip = `#${t.theme.strip.toString(16).padStart(6, '0')}`;
@@ -401,7 +469,8 @@ function boot(): void {
   ui.appendChild(results);
 
   const show = (el: HTMLElement | null): void => {
-    for (const s of [title, garage, shop, tracksel, champIntro, final, pause, results, fsHelp]) s.hidden = s !== el;
+    for (const s of [title, garage, shop, customize, tracksel, champIntro, final, pause, results, fsHelp])
+      s.hidden = s !== el;
   };
 
   /** Geste utilisateur : audio + plein écran (retenté à chaque départ, au cas où on en serait sorti). */

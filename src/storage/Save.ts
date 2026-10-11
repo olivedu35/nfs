@@ -1,4 +1,4 @@
-import { UPGRADE_COSTS, UpgradeId } from '../config';
+import { COSMETICS, CosmeticSlot, UPGRADE_COSTS, UpgradeId } from '../config';
 
 export type ControlMode = 'buttons' | 'gyro';
 
@@ -22,9 +22,29 @@ interface SaveData {
   wallet: number;
   upgrades: Record<UpgradeId, number>;
   settings: Settings;
+  /** esthétique possédée, par catégorie (le premier choix de chaque catégorie y est toujours) */
+  cosmeticsOwned: Record<CosmeticSlot, string[]>;
+  /** esthétique équipée, par voiture (index dans CARS) puis par catégorie */
+  cosmeticsEquipped: Record<number, Partial<Record<CosmeticSlot, string>>>;
 }
 
 const KEY = 'nightrush.v1';
+
+/** Le premier choix de chaque catégorie est gratuit : toujours possédé d'office. */
+function defaultOwned(): Record<CosmeticSlot, string[]> {
+  const out = {} as Record<CosmeticSlot, string[]>;
+  for (const slot of Object.keys(COSMETICS) as CosmeticSlot[]) out[slot] = [COSMETICS[slot][0].id];
+  return out;
+}
+
+function mergeOwned(d?: Partial<Record<CosmeticSlot, string[]>>): Record<CosmeticSlot, string[]> {
+  const out = defaultOwned();
+  for (const slot of Object.keys(COSMETICS) as CosmeticSlot[]) {
+    out[slot] = [...new Set([...out[slot], ...(d?.[slot] ?? [])])];
+  }
+  return out;
+}
+
 const DEFAULTS: SaveData = {
   records: {},
   champWins: 0,
@@ -32,6 +52,8 @@ const DEFAULTS: SaveData = {
   wallet: 5000, // cadeau de bienvenue : de quoi acheter 3 améliorations tout de suite
   upgrades: { engine: 0, turbo: 0, tires: 0, nitro: 0, magnet: 0 },
   settings: { control: 'buttons', sound: true, gyroInvert: false, car: 0 },
+  cosmeticsOwned: defaultOwned(),
+  cosmeticsEquipped: {},
 };
 
 function load(): SaveData {
@@ -51,6 +73,8 @@ function load(): SaveData {
       wallet: d.wallet ?? DEFAULTS.wallet,
       upgrades: { ...DEFAULTS.upgrades, ...(d.upgrades ?? {}) },
       settings: { ...DEFAULTS.settings, ...(d.settings ?? {}) },
+      cosmeticsOwned: mergeOwned(d.cosmeticsOwned),
+      cosmeticsEquipped: d.cosmeticsEquipped ?? {},
     };
   } catch {
     return structuredClone(DEFAULTS);
@@ -149,6 +173,27 @@ export const Save = {
     rec.air = airTime;
     persist();
     return true;
+  },
+  ownsCosmetic(slot: CosmeticSlot, id: string): boolean {
+    return data.cosmeticsOwned[slot].includes(id);
+  },
+  /** Achète une pièce esthétique (pas de niveau : un achat unique par pièce). */
+  buyCosmetic(slot: CosmeticSlot, id: string): boolean {
+    if (this.ownsCosmetic(slot, id)) return false;
+    const opt = COSMETICS[slot].find((o) => o.id === id);
+    if (!opt || data.wallet < opt.cost) return false;
+    data.wallet -= opt.cost;
+    data.cosmeticsOwned[slot].push(id);
+    persist();
+    return true;
+  },
+  /** Pièce équipée sur une voiture donnée (par défaut : apparence d'origine). */
+  equippedCosmetic(car: number, slot: CosmeticSlot): string {
+    return data.cosmeticsEquipped[car]?.[slot] ?? COSMETICS[slot][0].id;
+  },
+  equipCosmetic(car: number, slot: CosmeticSlot, id: string): void {
+    (data.cosmeticsEquipped[car] ??= {})[slot] = id;
+    persist();
   },
 };
 

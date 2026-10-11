@@ -47,7 +47,7 @@ export class Car {
   readonly mesh: Group;
 
   constructor(public spec: CarSpec) {
-    this.mesh = createCarMesh(spec.color);
+    this.mesh = createCarMesh(spec.color, spec.cosmetics);
   }
 
   get speed(): number {

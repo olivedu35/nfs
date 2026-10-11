@@ -6,7 +6,22 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
-import { AI, BINS, CARS, CarSpec, DAMAGE, NITRO, PHYSICS, POLICE, RAMP, RENDER, TRACK, TRAFFIC, UPGRADE_FX } from '../config';
+import {
+  AI,
+  BINS,
+  CARS,
+  CarSpec,
+  COSMETIC_SLOTS,
+  DAMAGE,
+  NITRO,
+  PHYSICS,
+  POLICE,
+  RAMP,
+  RENDER,
+  TRACK,
+  TRAFFIC,
+  UPGRADE_FX,
+} from '../config';
 import { Sound, vibrate } from '../audio/Sound';
 import { GyroControls } from '../input/GyroControls';
 import { TouchControls } from '../input/TouchControls';
@@ -231,6 +246,9 @@ export class Game {
       accel: base.accel * UPGRADE_FX.turbo(lv('turbo')),
       handling: base.handling * UPGRADE_FX.tires(lv('tires')),
       grip: base.grip * UPGRADE_FX.tires(lv('tires')),
+      cosmetics: Object.fromEntries(
+        COSMETIC_SLOTS.map(({ slot }) => [slot, Save.equippedCosmetic(carIndex, slot)]),
+      ) as CarSpec['cosmetics'],
     };
     this.nitroChargeMul = UPGRADE_FX.nitroCharge(lv('nitro'));
     this.magnetReach = UPGRADE_FX.magnetReach(lv('magnet'));

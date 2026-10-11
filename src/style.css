@@ -498,6 +498,81 @@ button.big {
   font-weight: 800;
 }
 
+/* ---------------------------------------------------------------- personnalisation */
+.customize {
+  gap: 16px;
+  justify-content: flex-start;
+}
+
+.cust-car-name {
+  font-style: italic;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--cyan);
+  flex-shrink: 0;
+}
+
+.cust-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(100%, 620px);
+}
+
+.cust-slot {
+  text-align: left;
+}
+
+.cust-slot > label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+
+.cust-opts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cust-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  min-height: 0;
+  text-align: left;
+}
+
+.cust-opt b {
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+.cust-opt small {
+  font-size: 0.64rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.cust-opt.owned {
+  border-color: #7dff6a;
+}
+
+.cust-opt.equipped {
+  background: #7dff6a;
+  border-color: #7dff6a;
+  color: #000;
+}
+
+.cust-opt:disabled {
+  opacity: 0.45;
+}
+
 /* ---------------------------------------------------------------- circuits / championnat */
 .champ-btn {
   background: var(--gold);
