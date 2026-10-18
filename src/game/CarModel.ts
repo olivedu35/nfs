@@ -11,6 +11,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  MeshStandardMaterial,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CarCosmetics, STOCK_COSMETICS } from '../config';
@@ -155,11 +156,12 @@ export const beamMat = new MeshBasicMaterial({
   side: DoubleSide,
 });
 
-const neutralMat = new MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+const neutralMat = new MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.2 });
 
 export function createCarMesh(color: number, cosmetics: CarCosmetics = STOCK_COSMETICS): Group {
   const g = new Group();
-  const carMat = new MeshLambertMaterial({ color, vertexColors: true });
+  // peinture carrosserie : légèrement glacée (vernis), sans être un miroir (pas d'env map)
+  const carMat = new MeshStandardMaterial({ color, vertexColors: true, roughness: 0.35, metalness: 0.15 });
   g.add(new Mesh(CarGeo.body, carMat));
   g.add(new Mesh(CarGeo.lights, lightMat));
   g.add(new Mesh(CarGeo.beam, beamMat));

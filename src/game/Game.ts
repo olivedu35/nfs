@@ -1,11 +1,18 @@
 import {
+  ACESFilmicToneMapping,
   AmbientLight,
-  Color,
   DirectionalLight,
   Fog,
   Scene,
+  Vector2,
   WebGLRenderer,
 } from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js';
 import {
   AI,
   BINS,
@@ -39,6 +46,7 @@ import { Track, TrackSample } from './Track';
 import { TRACKS, TrackDef } from './tracks';
 import { Traffic, TrafficCar } from './Traffic';
 import { Trails } from './Trails';
+import { createSkyTexture, createStarField } from './Sky';
 
 export type GameState = 'idle' | 'countdown' | 'race' | 'finished' | 'busted';
 
@@ -66,6 +74,8 @@ const hex = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 export class Game {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
+  private readonly composer: EffectComposer;
+  private readonly vignette: ShaderPass;
   track: Track;
   readonly camera: ChaseCamera;
   readonly hud: Hud;
@@ -130,17 +140,40 @@ export class Game {
     this.renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxDpr));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = RENDER.toneExposure;
     this.track = new Track(TRACKS[0]);
-    this.scene.background = new Color(RENDER.sky);
     this.scene.fog = new Fog(RENDER.sky, RENDER.fogNear, RENDER.fogFar);
     this.applyTheme();
     this.scene.add(new AmbientLight(0x8890c8, 1.1));
     const moon = new DirectionalLight(0xaab4ff, 1.2);
     moon.position.set(0.4, 0.8, 0.3);
     this.scene.add(moon);
+    // contre-jour froid : donne du relief aux voitures et aux immeubles côté ombre
+    const rim = new DirectionalLight(0x3a52ff, 0.32);
+    rim.position.set(-0.5, 0.35, -0.6);
+    this.scene.add(rim);
+    this.scene.add(createStarField());
     this.scene.add(this.track.group);
 
     this.camera = new ChaseCamera(window.innerWidth / window.innerHeight);
+
+    // post-traitement : halo lumineux sur les néons/phares/fenêtres + vignette dynamique
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera.cam));
+    this.composer.addPass(
+      new UnrealBloomPass(
+        new Vector2(window.innerWidth / 2, window.innerHeight / 2),
+        RENDER.bloomStrength,
+        RENDER.bloomRadius,
+        RENDER.bloomThreshold,
+      ),
+    );
+    this.vignette = new ShaderPass(VignetteShader);
+    this.vignette.uniforms.offset.value = 1.1;
+    this.vignette.uniforms.darkness.value = RENDER.vignetteBase;
+    this.composer.addPass(this.vignette);
+    this.composer.addPass(new OutputPass());
 
     this.player = new Car(CARS[0]);
     this.scene.add(this.player.mesh);
@@ -181,7 +214,9 @@ export class Game {
 
   private applyTheme(): void {
     const t = this.track.theme;
-    (this.scene.background as Color).setHex(t.sky);
+    const prevSky = this.scene.background;
+    this.scene.background = createSkyTexture(t.sky);
+    if (prevSky && 'dispose' in prevSky) prevSky.dispose();
     const fog = this.scene.fog as Fog;
     fog.color.setHex(t.sky);
     fog.far = t.fogFar;
@@ -211,6 +246,7 @@ export class Game {
   resize(): void {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxDpr));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    this.composer.setSize(window.innerWidth, window.innerHeight);
     this.camera.resize(window.innerWidth / window.innerHeight);
     this.touch.measure();
   }
@@ -358,7 +394,7 @@ export class Game {
       cam.lookAt(p.x, 0.8, p.z);
       this.traffic.update(dt);
       this.traffic.sync();
-      this.renderer.render(this.scene, cam);
+      this.composer.render();
       return;
     }
 
@@ -370,7 +406,7 @@ export class Game {
       }
       this.updateVisuals(dt);
     }
-    this.renderer.render(this.scene, this.camera.cam);
+    this.composer.render();
   }
 
   private step(dt: number): void {
@@ -823,6 +859,11 @@ export class Game {
     const ratio = clamp(p.speed / p.spec.maxSpeed, 0, 1.3);
     this.camera.update(dt, p.x, p.z, p.h, ratio, p.nitroActive);
     this.trails.update(dt, p.x, p.z, p.h, p.nitroActive);
+
+    // vignette dynamique : se resserre un peu à haute vitesse / en nitro (sensation de vitesse)
+    const targetDarkness = RENDER.vignetteBase + ratio * RENDER.vignetteSpeed + (p.nitroActive ? RENDER.vignetteNitro : 0);
+    const dv = this.vignette.uniforms.darkness;
+    dv.value += (targetDarkness - dv.value) * Math.min(1, dt * 4);
 
     if (p.nitroActive && !this.lastNitro) {
       this.sound.nitro();

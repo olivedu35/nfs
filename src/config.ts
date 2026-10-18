@@ -164,6 +164,15 @@ export const RENDER = {
   fogNear: 60,
   fogFar: 280,
   sky: 0x0b0d1a,
+  // halo lumineux (néons, phares, fenêtres) : résolution réduite de moitié pour rester mobile-friendly
+  bloomStrength: 0.32,
+  bloomRadius: 0.35,
+  bloomThreshold: 0.82,
+  toneExposure: 1.0,
+  // vignette dynamique : plus marquée à haute vitesse / en nitro, pour la sensation de vitesse
+  vignetteBase: 1.0,
+  vignetteSpeed: 0.55,
+  vignetteNitro: 0.45,
 };
 
 /** État de la voiture : accrochages avant destruction et réapparition. */
