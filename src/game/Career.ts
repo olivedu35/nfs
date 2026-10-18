@@ -24,7 +24,8 @@ export interface CareerTier {
 }
 
 /**
- * Carrière : 4 paliers de 4 épreuves, en boucle sur les circuits existants.
+ * Carrière : 4 paliers de 4 épreuves, puisant dans les 7 circuits (et leurs 7 variantes
+ * inversées) pour ne jamais enchaîner deux fois le même tracé dans le même sens.
  * Chaque épreuve réussie rapporte une prime ; un palier complet débloque une voiture.
  * Les objectifs « race » sont auto-calibrés (relatifs au peloton IA) ; les objectifs
  * « score » sont volontairement généreux pour ne jamais bloquer la progression.
@@ -39,7 +40,7 @@ export const CAREER: CareerTier[] = [
     events: [
       { id: 'rookie-1', trackId: 'downtown', type: 'race', target: 4, reward: 3000 },
       { id: 'rookie-2', trackId: 'port', type: 'race', target: 3, reward: 3500 },
-      { id: 'rookie-3', trackId: 'chinatown', type: 'score', target: 600, reward: 4000 },
+      { id: 'rookie-3', trackId: 'oldtown', type: 'score', target: 600, reward: 4000 },
       { id: 'rookie-4', trackId: 'autoroute', type: 'race', target: 3, reward: 5000 },
     ],
   },
@@ -50,10 +51,10 @@ export const CAREER: CareerTier[] = [
     unlockCarId: 'drifter',
     tierBonus: 15000,
     events: [
-      { id: 'confirme-1', trackId: 'downtown', type: 'race', target: 2, reward: 6000 },
-      { id: 'confirme-2', trackId: 'port', type: 'score', target: 1500, reward: 7000 },
-      { id: 'confirme-3', trackId: 'chinatown', type: 'race', target: 2, reward: 7000 },
-      { id: 'confirme-4', trackId: 'autoroute', type: 'race', target: 2, reward: 8000 },
+      { id: 'confirme-1', trackId: 'chinatown', type: 'race', target: 2, reward: 6000 },
+      { id: 'confirme-2', trackId: 'industrial', type: 'score', target: 1500, reward: 7000 },
+      { id: 'confirme-3', trackId: 'riviera', type: 'race', target: 2, reward: 7000 },
+      { id: 'confirme-4', trackId: 'downtown-rev', type: 'race', target: 2, reward: 8000 },
     ],
   },
   {
@@ -62,10 +63,10 @@ export const CAREER: CareerTier[] = [
     title: 'PILOTE PRO',
     tierBonus: 25000,
     events: [
-      { id: 'pro-1', trackId: 'downtown', type: 'race', target: 1, reward: 10000 },
-      { id: 'pro-2', trackId: 'port', type: 'race', target: 1, reward: 10000 },
-      { id: 'pro-3', trackId: 'chinatown', type: 'score', target: 3000, reward: 12000 },
-      { id: 'pro-4', trackId: 'autoroute', type: 'race', target: 1, reward: 14000 },
+      { id: 'pro-1', trackId: 'port-rev', type: 'race', target: 1, reward: 10000 },
+      { id: 'pro-2', trackId: 'oldtown-rev', type: 'race', target: 1, reward: 10000 },
+      { id: 'pro-3', trackId: 'autoroute-rev', type: 'score', target: 3000, reward: 12000 },
+      { id: 'pro-4', trackId: 'chinatown-rev', type: 'race', target: 1, reward: 14000 },
     ],
   },
   {
@@ -74,8 +75,8 @@ export const CAREER: CareerTier[] = [
     title: 'LÉGENDE DE NIGHT RUSH',
     tierBonus: 40000,
     events: [
-      { id: 'legende-1', trackId: 'downtown', type: 'race', target: 1, reward: 16000 },
-      { id: 'legende-2', trackId: 'port', type: 'score', target: 4500, reward: 16000 },
+      { id: 'legende-1', trackId: 'industrial-rev', type: 'race', target: 1, reward: 16000 },
+      { id: 'legende-2', trackId: 'riviera-rev', type: 'score', target: 4500, reward: 16000 },
       { id: 'legende-3', trackId: 'chinatown', type: 'race', target: 1, reward: 18000 },
       { id: 'legende-4', trackId: 'autoroute', type: 'race', target: 1, reward: 30000 },
     ],

@@ -104,10 +104,79 @@ export const TRACKS: TrackDef[] = [
       window: 0x9fd0ff, fogFar: 330, height: 1.35,
     },
   },
+  {
+    id: 'oldtown',
+    name: 'QUARTIER HISTORIQUE',
+    subtitle: 'Ruelles étroites, pavés chauds',
+    laps: 4,
+    seed: 4040,
+    points: [
+      [0, 0], [80, 10], [140, 60], [130, 140], [70, 160], [90, 220], [160, 250],
+      [150, 320], [70, 340], [-20, 300], [-60, 230], [-30, 160], [-90, 130],
+      [-110, 60], [-60, 10],
+    ],
+    ramps: [0.18, 0.55],
+    theme: {
+      sky: 0x140a08, ground: 0x1c1410, road: 0x443830, wall: 0x9a7a5a, strip: 0xffb84d,
+      banner: 0xff6a3a, lamp: 0xffcf8a, pool: 0x5a3a1a,
+      palette: [0x5a3a28, 0x6a4a2a, 0x4a3022, 0x3a2a1e, 0x5a4234, 0x44301f],
+      window: 0xffd9a0, fogFar: 240, height: 0.7,
+    },
+  },
+  {
+    id: 'industrial',
+    name: 'ZONE INDUSTRIELLE',
+    subtitle: 'Larges virages, lumières au sodium',
+    laps: 3,
+    seed: 5151,
+    points: [
+      [0, 0], [220, 0], [260, -80], [220, -180], [100, -200], [40, -140],
+      [60, -60], [-40, -30], [-140, -60], [-220, -20], [-240, 80], [-160, 160],
+      [-40, 150], [20, 90],
+    ],
+    ramps: [0.1, 0.45, 0.78],
+    theme: {
+      sky: 0x0a1008, ground: 0x12160f, road: 0x383f32, wall: 0x6a7a5a, strip: 0xd4ff2d,
+      banner: 0xffb02d, lamp: 0xe8ff9a, pool: 0x4a5a28,
+      palette: [0x3a4a30, 0x4a4a2a, 0x2a3a2a, 0x4a3a2a, 0x353f2e, 0x2a2f22],
+      window: 0xc8e86a, fogFar: 250, height: 0.9,
+    },
+  },
+  {
+    id: 'riviera',
+    name: 'RIVIERA',
+    subtitle: 'Front de mer, grandes courbes',
+    laps: 3,
+    seed: 6262,
+    points: [
+      [0, 0], [260, -30], [420, 40], [460, 180], [380, 300], [220, 320],
+      [140, 420], [-40, 440], [-180, 360], [-200, 220], [-120, 140], [-140, 40],
+    ],
+    ramps: [0.12, 0.5, 0.82],
+    theme: {
+      sky: 0x061a1e, ground: 0x0c1e20, road: 0x2e4a4e, wall: 0x6a9aa0, strip: 0x3affc8,
+      banner: 0xff5fa8, lamp: 0xaef0ff, pool: 0x1a4a4a,
+      palette: [0x1f4a4a, 0x2a5a52, 0x1a3a44, 0x2f4a3a, 0x24413f, 0x1a3030],
+      window: 0x9ff5e0, fogFar: 320, height: 1.1,
+    },
+  },
 ];
 
+/** Même tracé, parcouru dans l'autre sens (pour la carrière : plus de variété sans dessiner de nouveaux circuits). */
+function reverseTrack(def: TrackDef): TrackDef {
+  return {
+    ...def,
+    id: `${def.id}-rev`,
+    name: `${def.name} INVERSÉ`,
+    points: [...def.points].reverse(),
+  };
+}
+
+/** Circuits + leurs variantes inversées : réservé aux écrans qui veulent piocher dans tout le lot (carrière). */
+export const ALL_TRACKS: TrackDef[] = [...TRACKS, ...TRACKS.map(reverseTrack)];
+
 export function trackById(id: string): TrackDef {
-  return TRACKS.find((t) => t.id === id) ?? TRACKS[0];
+  return ALL_TRACKS.find((t) => t.id === id) ?? TRACKS[0];
 }
 
 export function trackCurve(def: TrackDef): CatmullRomCurve3 {

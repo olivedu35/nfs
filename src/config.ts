@@ -200,8 +200,9 @@ export const DAMAGE = {
 
 export const BINS = {
   spacing: 26, // m entre deux groupes de poubelles
-  lateralMin: 6.4, // hors des files de l'IA et du trafic, côté trottoir
-  lateralMax: 8.6,
+  // Sur le trottoir (entre hw+0.1 et hw+1.6), hors des files de l'IA et du trafic
+  lateralMin: 9.3,
+  lateralMax: 10,
   // Base d'une poubelle : volontairement modeste pour que le score (= monnaie du portefeuille)
   // reste cohérent avec le coût des améliorations (1000-6000 PTS) et les primes de carrière/
   // championnat (quelques milliers à quelques dizaines de milliers) plutôt que de les écraser.

@@ -272,6 +272,13 @@ export class Track {
     const dashEvery = Math.round(7 / this.ds);
     const dashLen = Math.max(1, Math.round(3.5 / this.ds));
     for (let i = 0; i < n; i += dashEvery) quad(i, i + dashLen, -0.15, 0.15, 0.04, [0.75, 0.75, 0.7]);
+    // Trottoirs : bande continue entre la route et les murets — c'est là que vivent les poubelles
+    const sideLen = Math.max(1, Math.round(4 / this.ds));
+    const SIDEWALK: [number, number, number] = [0.5, 0.5, 0.54];
+    for (let i = 0; i < n; i += sideLen) {
+      quad(i, i + sideLen, hw + 0.1, hw + 1.6, 0.025, SIDEWALK);
+      quad(i, i + sideLen, -hw - 1.6, -hw - 0.1, 0.025, SIDEWALK);
+    }
     const kerbLen = Math.max(1, Math.round(3 / this.ds));
     for (let i = 0, odd = 0; i < n; i += kerbLen, odd ^= 1) {
       const c: [number, number, number] = odd ? [0.75, 0.1, 0.12] : [0.8, 0.8, 0.8];
@@ -535,14 +542,18 @@ function buildingMaterial(windowColor: number): ShaderMaterial {
         vec3 col = vCol * (0.45 + 0.55 * max(dot(n, uLight), 0.0));
         if (abs(n.y) < 0.5) {
           float u = abs(n.x) > 0.5 ? vW.z : vW.x;
-          vec2 g = vec2(u / 2.4, vW.y / 3.2);
+          // grille plus large et bords adoucis (anti-flicker) plutôt qu'un pavé dense aux arêtes nettes
+          vec2 g = vec2(u / 2.8, vW.y / 3.6);
           vec2 cell = floor(g);
           vec2 f = fract(g);
-          float win = step(0.28, f.x) * step(f.x, 0.72) * step(0.3, f.y) * step(f.y, 0.75);
+          float wx = smoothstep(0.26, 0.33, f.x) * smoothstep(0.74, 0.67, f.x);
+          float wy = smoothstep(0.28, 0.35, f.y) * smoothstep(0.78, 0.71, f.y);
+          float win = wx * wy;
           float seed = hash(cell + vCol.rg * 91.0);
-          win *= step(0.55, seed) * step(1.5, vW.y);
-          vec3 lit = mix(uWindow, vec3(0.55, 0.85, 1.0), step(0.85, seed));
-          col = mix(col, lit * (0.6 + 0.4 * hash(cell * 1.7)), win);
+          // une fenêtre sur quatre environ, une seule teinte (celle du thème) : pas de clignotement multicolore
+          win *= step(0.74, seed) * step(1.5, vW.y);
+          vec3 lit = uWindow * (0.8 + 0.2 * hash(cell * 1.7));
+          col = mix(col, lit, win);
         } else {
           col *= 0.7;
         }
