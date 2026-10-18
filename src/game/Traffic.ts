@@ -37,12 +37,15 @@ export class Traffic {
     // répartis sur le circuit, en évitant la grille de départ
     const start = 80, end = L - 90;
     this.cars.forEach((c, i) => {
-      const s = start + ((end - start) * (i + 0.5)) / this.cars.length;
-      const lane = TRAFFIC.lanes[i % TRAFFIC.lanes.length] + (Math.random() - 0.5);
+      // une file dans le sens de la course, l'autre à contresens (vraie circulation à double sens)
+      const laneIdx = i % TRAFFIC.lanes.length;
+      c.dir = laneIdx === 0 ? -1 : 1;
+      const lane = TRAFFIC.lanes[laneIdx] + (Math.random() - 0.5);
       c.baseSpeed = TRAFFIC.minSpeed + Math.random() * (TRAFFIC.maxSpeed - TRAFFIC.minSpeed);
       c.speed = c.baseSpeed;
       c.recover = 0;
       c.nearMissArmed = true;
+      const s = start + ((end - start) * (i + 0.5)) / this.cars.length;
       c.setAt(s, lane, 0);
     });
   }
@@ -51,7 +54,7 @@ export class Traffic {
     for (const c of this.cars) {
       if (c.recover > 0) c.recover -= dt;
       c.speed += (c.baseSpeed - c.speed) * Math.min(1, dt * 0.8);
-      c.advance(c.speed * dt);
+      c.advance(c.dir * c.speed * dt);
       c.updatePose(dt);
       c.laneVel *= Math.exp(-4 * dt);
     }

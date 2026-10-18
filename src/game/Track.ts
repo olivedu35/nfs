@@ -28,6 +28,12 @@ import { toonGradientSoft } from './Toon';
 
 const RAMP_COLOR = 0xffb020;
 const RAMP_SIDE_COLOR = 0x2a2416;
+/** Intersections cosmétiques : rues transversales + passage piéton, à ces fractions du tour. */
+const INTERSECTION_FRACS = [0.35, 0.88];
+const INTERSECTION_STREET_HALF = 4.5;
+const INTERSECTION_STREET_LEN = 14;
+/** largeur de la trouée laissée dans les murets pour que la rue transversale débouche vraiment */
+const INTERSECTION_GAP_HALF = 7;
 
 export interface TrackSample {
   x: number;
@@ -68,6 +74,8 @@ export class Track {
   readonly minZ: number;
   readonly maxZ: number;
   readonly ramps: RampZone[];
+  /** abscisses (s) des intersections cosmétiques */
+  readonly intersections: number[];
 
   readonly theme: TrackTheme;
 
@@ -98,8 +106,18 @@ export class Track {
       const s0 = this.wrapS(s1 - RAMP.length);
       return { s0, s1 };
     });
+    this.intersections = INTERSECTION_FRACS.map((f) => f * this.length);
     this.computeAdvisory();
     this.buildMeshes();
+  }
+
+  /** s est-il à moins de `half` d'une intersection (avec repli circulaire) ? */
+  private isNearIntersection(s: number, half: number): boolean {
+    for (const cs of this.intersections) {
+      const d = Math.abs(s - cs);
+      if (Math.min(d, this.length - d) < half) return true;
+    }
+    return false;
   }
 
   /**
@@ -313,6 +331,75 @@ export class Track {
     this.buildLamps();
     this.buildBuildings();
     this.buildRamps();
+    this.buildIntersections();
+  }
+
+  /** Intersections cosmétiques : passage piéton sur la route + rue transversale débouchant de chaque côté. */
+  private buildIntersections(): void {
+    if (this.intersections.length === 0) return;
+    const hw = TRACK.halfWidth;
+    const samp: TrackSample = { x: 0, z: 0, tx: 0, tz: 1, rx: -1, rz: 0 };
+    const crossPos: number[] = [];
+    const crossCol: number[] = [];
+    const streetGeos: BufferGeometry[] = [];
+    const lightPoles: BufferGeometry[] = [];
+    for (const cs of this.intersections) {
+      // passage piéton : bandes claires sur toute la largeur de la route
+      const stripeW = 1.1, gap = 1.1, count = 6;
+      const span = count * (stripeW + gap);
+      for (let k = 0; k < count; k++) {
+        const sa = this.wrapS(cs - span / 2 + k * (stripeW + gap));
+        const sb = this.wrapS(sa + stripeW);
+        this.sampleAt(sa, samp);
+        const ax = samp.x - samp.rx * hw, az = samp.z - samp.rz * hw;
+        const bx = samp.x + samp.rx * hw, bz = samp.z + samp.rz * hw;
+        this.sampleAt(sb, samp);
+        const cx = samp.x - samp.rx * hw, cz = samp.z - samp.rz * hw;
+        const dx = samp.x + samp.rx * hw, dz = samp.z + samp.rz * hw;
+        const y = 0.05;
+        for (const [x, z] of [[ax, az], [bx, bz], [cx, cz], [bx, bz], [dx, dz], [cx, cz]] as const) {
+          crossPos.push(x, y, z);
+          crossCol.push(0.92, 0.92, 0.9);
+        }
+      }
+      // rue transversale : un débouché de chaque côté de la route, à travers la trouée des murets
+      this.sampleAt(cs, samp);
+      for (const side of [-1, 1]) {
+        const innerX = samp.x + samp.rx * hw * side, innerZ = samp.z + samp.rz * hw * side;
+        const outerX = samp.x + samp.rx * (hw + INTERSECTION_STREET_LEN) * side;
+        const outerZ = samp.z + samp.rz * (hw + INTERSECTION_STREET_LEN) * side;
+        const tx = samp.tx * INTERSECTION_STREET_HALF, tz = samp.tz * INTERSECTION_STREET_HALF;
+        const y = 0.03;
+        const pos = [
+          innerX - tx, y, innerZ - tz, innerX + tx, y, innerZ + tz, outerX - tx, y, outerZ - tz,
+          innerX + tx, y, innerZ + tz, outerX + tx, y, outerZ + tz, outerX - tx, y, outerZ - tz,
+        ];
+        const g = new BufferGeometry();
+        g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+        g.computeVertexNormals();
+        streetGeos.push(g);
+      }
+      // feu tricolore : un poteau au coin de l'intersection
+      const px = samp.x + samp.rx * (hw + 1.6), pz = samp.z + samp.rz * (hw + 1.6);
+      lightPoles.push(new CylinderGeometry(0.08, 0.1, 4, 6).translate(px, 2, pz));
+      lightPoles.push(new BoxGeometry(0.4, 0.9, 0.3).translate(px, 4.1, pz));
+    }
+    if (crossPos.length) {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array(crossPos), 3));
+      g.setAttribute('color', new BufferAttribute(new Float32Array(crossCol), 3));
+      this.group.add(new Mesh(g, new MeshBasicMaterial({ vertexColors: true })));
+    }
+    if (streetGeos.length) {
+      this.group.add(
+        new Mesh(mergeGeometries(streetGeos), new MeshToonMaterial({ color: this.theme.road, gradientMap: toonGradientSoft })),
+      );
+    }
+    if (lightPoles.length) {
+      this.group.add(
+        new Mesh(mergeGeometries(lightPoles), new MeshToonMaterial({ color: 0x24242a, gradientMap: toonGradientSoft })),
+      );
+    }
   }
 
   /** Tremplins : rampe qui monte depuis la route jusqu'à RAMP.height, striée pour la visibilité. */
@@ -369,6 +456,8 @@ export class Track {
     const pos: number[] = [];
     for (const side of [-1, 1]) {
       for (let i = 0; i < n; i++) {
+        // trouée pour laisser déboucher les rues transversales des intersections
+        if (this.isNearIntersection(i * this.ds, INTERSECTION_GAP_HALF)) continue;
         const a = i, b = (i + 1) % n;
         const ax = this.px[a] + -this.tz[a] * offset * side;
         const az = this.pz[a] + this.tx[a] * offset * side;

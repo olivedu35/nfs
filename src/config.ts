@@ -134,6 +134,7 @@ export const TRAFFIC = {
   count: 8,
   minSpeed: 12,
   maxSpeed: 19,
+  // lanes[0] = contresens (voie de gauche), lanes[1] = même sens que la course (voie de droite) : vraie double circulation
   lanes: [-4.5, 4.5],
   colors: [0xdddddd, 0x5577aa, 0x557755, 0xaa8855, 0x884444, 0x666677],
   hitSlow: 0.45,

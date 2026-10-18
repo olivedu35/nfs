@@ -607,7 +607,8 @@ export class Game {
         // frôlement de trafic → nitro
         if (kind === 'traffic' && racing) {
           const c = b as TrafficCar;
-          const rel = p.speed - c.speed;
+          // à contresens, la vitesse de rapprochement s'additionne au lieu de se soustraire
+          const rel = p.speed + (c.dir < 0 ? c.speed : -c.speed);
           if (c.nearMissArmed && Math.abs(lf) < 2.5 && Math.abs(ll) < NITRO.nearMissDist && rel > NITRO.nearMissMinRel) {
             c.nearMissArmed = false;
             p.nitro = Math.min(1, p.nitro + NITRO.nearMissCharge * this.nitroChargeMul);

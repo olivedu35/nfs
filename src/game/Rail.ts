@@ -23,6 +23,8 @@ export class RailBody {
   /** hauteur au-dessus de la route (tremplin) */
   y = 0;
   vy = 0;
+  /** +1 : sens de la course · -1 : sens inverse (véhicule en contresens, ex. trafic venant en face) */
+  dir: 1 | -1 = 1;
   private onRamp = false;
 
   /** modifiable : un même véhicule est réutilisé d'un circuit à l'autre */
@@ -67,9 +69,9 @@ export class RailBody {
     }
     this.x = nx;
     this.z = nz;
-    // cap = tangente + légère orientation selon le changement de file
-    const base = Math.atan2(p.tx, p.tz);
-    const slip = Math.atan2(this.laneVel, Math.max(this.speed, 5));
+    // cap = tangente (inversée en contresens) + légère orientation selon le changement de file
+    const base = Math.atan2(p.tx, p.tz) + (this.dir < 0 ? Math.PI : 0);
+    const slip = Math.atan2(this.laneVel, Math.max(this.speed, 5)) * this.dir;
     this.h = base - slip;
     if (dt > 0) this.applyRamp(dt);
   }
