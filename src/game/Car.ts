@@ -40,6 +40,8 @@ export class Car {
   nitroActive = false;
   /** multiplicateur de consommation de nitro (amélioration NITRO) */
   nitroDrainMul = 1;
+  /** multiplicateur de puissance de freinage (amélioration FREINS) */
+  brakeMul = 1;
   drifting = false;
   /** intensité du dernier choc contre un mur (lue puis remise à 0 par le jeu) */
   wallImpact = 0;
@@ -108,7 +110,7 @@ export class Car {
     if (input.throttle > 0) {
       if (fwd < -0.5) {
         // en marche arrière, le gaz freine d'abord jusqu'à l'arrêt, puis on repart en avant
-        a += PHYSICS.brakeDecel * input.throttle;
+        a += PHYSICS.brakeDecel * this.brakeMul * input.throttle;
       } else {
         const r = clamp(fwd / maxV, 0, 1);
         a += spec.accel * input.throttle * (1 - r * r * r);
@@ -116,7 +118,7 @@ export class Car {
       }
     }
     if (input.brake > 0) {
-      if (fwd > 0.5) a -= PHYSICS.brakeDecel * input.brake * (driftMode ? 0.25 : 1);
+      if (fwd > 0.5) a -= PHYSICS.brakeDecel * this.brakeMul * input.brake * (driftMode ? 0.25 : 1);
       else if (input.throttle === 0 && !input.noReverse && fwd > -PHYSICS.reverseMax) a -= PHYSICS.reverseAccel * input.brake;
     }
     a -= PHYSICS.drag * fwd;

@@ -275,7 +275,7 @@ export class Game {
     this.bankScore();
     this.loadTrack(def); // course précédente abandonnée : les points restent acquis
     const base = CARS[carIndex] ?? CARS[0];
-    const lv = (id: Parameters<typeof Save.level>[0]): number => Save.level(id);
+    const lv = (id: Parameters<typeof Save.level>[1]): number => Save.level(carIndex, id);
     const spec: CarSpec = {
       ...base,
       maxSpeed: base.maxSpeed * UPGRADE_FX.engine(lv('engine')),
@@ -294,6 +294,7 @@ export class Game {
     this.scene.remove(this.player.mesh);
     this.player = new Car(spec);
     this.player.nitroDrainMul = UPGRADE_FX.nitroDrain(lv('nitro'));
+    this.player.brakeMul = UPGRADE_FX.brakeMul(lv('brakes'));
     this.scene.add(this.player.mesh);
     this.applySettings(Save.settings);
     this.setupGrid();

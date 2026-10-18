@@ -200,23 +200,57 @@ export const BINS = {
 };
 
 // ---------------------------------------------------------------- boutique
-export type UpgradeId = 'engine' | 'turbo' | 'tires' | 'nitro' | 'magnet';
+export type UpgradeId = 'engine' | 'turbo' | 'tires' | 'brakes' | 'nitro' | 'magnet';
 
 export interface UpgradeDef {
   id: UpgradeId;
   name: string;
   desc: string;
+  /** nom de la pièce posée à chaque palier (longueur = UPGRADE_COSTS.length) */
+  tiers: string[];
 }
 
 /** Progression volontairement ridicule : une poubelle (1000 pts) ≈ un niveau au début. */
 export const UPGRADE_COSTS = [1000, 1500, 2500, 4000, 6000];
 
+/** Améliorations par voiture (chaque voiture garde ses propres niveaux, comme un vrai garage de tuning). */
 export const UPGRADES: UpgradeDef[] = [
-  { id: 'engine', name: 'MOTEUR', desc: '+6 % vitesse max / niv.' },
-  { id: 'turbo', name: 'TURBO', desc: '+15 % accélération / niv.' },
-  { id: 'tires', name: 'PNEUS', desc: '+7 % maniabilité et adhérence / niv.' },
-  { id: 'nitro', name: 'NITRO', desc: 'dure +20 %, recharge +25 % / niv.' },
-  { id: 'magnet', name: 'AIMANT À POUBELLES', desc: 'attire les poubelles (portée 13 → 21 m), +25 % de points / niv.' },
+  {
+    id: 'engine',
+    name: 'MOTEUR',
+    desc: '+6 % vitesse max / niv.',
+    tiers: ['FILTRE À AIR SPORT', 'COLLECTEUR SPORT', 'TURBO HYBRIDE', 'ECU RACING', 'BLOC MOTEUR FORGÉ'],
+  },
+  {
+    id: 'turbo',
+    name: 'TURBO',
+    desc: '+15 % accélération / niv.',
+    tiers: ['WASTEGATE EXTERNE', 'INTERCOOLER FRONTAL', 'TURBO ANTI-LAG', 'BOOST CONTROLLER', 'KIT COMPÉTITION'],
+  },
+  {
+    id: 'tires',
+    name: 'PNEUS',
+    desc: '+7 % maniabilité et adhérence / niv.',
+    tiers: ['PNEUS SPORT', 'SUSPENSIONS RÉGLABLES', 'BARRES ANTI-ROULIS', 'TRAIN AVANT RENFORCÉ', 'SLICKS COMPÉTITION'],
+  },
+  {
+    id: 'brakes',
+    name: 'FREINS',
+    desc: '+8 % puissance de freinage / niv.',
+    tiers: ['PLAQUETTES SPORT', 'DISQUES PERFORÉS', 'ÉTRIERS 4 PISTONS', 'DURITES AVIATION', 'KIT RACING CARBONE-CÉRAMIQUE'],
+  },
+  {
+    id: 'nitro',
+    name: 'NITRO',
+    desc: 'dure +20 %, recharge +25 % / niv.',
+    tiers: ['BOUTEILLE 5L', 'INJECTEUR DOUBLE', 'CIRCUIT RENFORCÉ', 'PURGE RAPIDE', 'SYSTÈME NITRO PRO'],
+  },
+  {
+    id: 'magnet',
+    name: 'AIMANT À POUBELLES',
+    desc: 'attire les poubelles (portée 13 → 21 m), +25 % de points / niv.',
+    tiers: ['AIMANT BASIQUE', 'AIMANT RENFORCÉ', 'PORTÉE ÉTENDUE', 'DOUBLE AIMANT', 'AIMANT PRO'],
+  },
 ];
 
 /** Effet d'un niveau d'amélioration (0..5). */
@@ -224,6 +258,7 @@ export const UPGRADE_FX = {
   engine: (l: number) => 1 + 0.06 * l,
   turbo: (l: number) => 1 + 0.15 * l,
   tires: (l: number) => 1 + 0.07 * l,
+  brakeMul: (l: number) => 1 + 0.08 * l,
   nitroDrain: (l: number) => 1 / (1 + 0.2 * l),
   nitroCharge: (l: number) => 1 + 0.25 * l,
   magnetReach: (l: number) => 0.3 * l, // zone de choc élargie

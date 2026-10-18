@@ -21,7 +21,8 @@ interface SaveData {
   champWins: number;
   bestScore: number;
   wallet: number;
-  upgrades: Record<UpgradeId, number>;
+  /** niveaux d'amélioration, par voiture (index dans CARS) puis par catégorie : chaque voiture a son propre garage */
+  upgrades: Record<number, Partial<Record<UpgradeId, number>>>;
   settings: Settings;
   /** esthétique possédée, par catégorie (le premier choix de chaque catégorie y est toujours) */
   cosmeticsOwned: Record<CosmeticSlot, string[]>;
@@ -53,12 +54,21 @@ const DEFAULTS: SaveData = {
   champWins: 0,
   bestScore: 0,
   wallet: 5000, // cadeau de bienvenue : de quoi acheter 3 améliorations tout de suite
-  upgrades: { engine: 0, turbo: 0, tires: 0, nitro: 0, magnet: 0 },
+  upgrades: {},
   settings: { control: 'buttons', sound: true, gyroInvert: false, car: 0 },
   cosmeticsOwned: defaultOwned(),
   cosmeticsEquipped: {},
   careerPassed: [],
 };
+
+/** migration v1 → v2 : les améliorations étaient globales (partagées par les 3 voitures) ; on les rapatrie sur VIPER (voiture 0). */
+function migrateUpgrades(raw: unknown): Record<number, Partial<Record<UpgradeId, number>>> {
+  if (!raw || typeof raw !== 'object') return {};
+  const obj = raw as Record<string, unknown>;
+  const wasFlat = ['engine', 'turbo', 'tires', 'nitro', 'magnet'].some((k) => k in obj);
+  if (wasFlat) return { 0: obj as Partial<Record<UpgradeId, number>> };
+  return obj as Record<number, Partial<Record<UpgradeId, number>>>;
+}
 
 function load(): SaveData {
   try {
@@ -75,7 +85,7 @@ function load(): SaveData {
       champWins: d.champWins ?? 0,
       bestScore: d.bestScore ?? 0,
       wallet: d.wallet ?? DEFAULTS.wallet,
-      upgrades: { ...DEFAULTS.upgrades, ...(d.upgrades ?? {}) },
+      upgrades: migrateUpgrades(d.upgrades),
       settings: { ...DEFAULTS.settings, ...(d.settings ?? {}) },
       cosmeticsOwned: mergeOwned(d.cosmeticsOwned),
       cosmeticsEquipped: d.cosmeticsEquipped ?? {},
@@ -133,19 +143,21 @@ export const Save = {
     data.wallet += points;
     persist();
   },
-  level(id: UpgradeId): number {
-    return data.upgrades[id];
+  /** Niveau d'une amélioration pour une voiture donnée (chaque voiture a son propre garage). */
+  level(car: number, id: UpgradeId): number {
+    return data.upgrades[car]?.[id] ?? 0;
   },
-  /** Coût du prochain niveau, ou null si déjà au max. */
-  nextCost(id: UpgradeId): number | null {
-    const l = data.upgrades[id];
+  /** Coût du prochain niveau pour cette voiture, ou null si déjà au max. */
+  nextCost(car: number, id: UpgradeId): number | null {
+    const l = this.level(car, id);
     return l < UPGRADE_COSTS.length ? UPGRADE_COSTS[l] : null;
   },
-  buy(id: UpgradeId): boolean {
-    const cost = this.nextCost(id);
+  buy(car: number, id: UpgradeId): boolean {
+    const cost = this.nextCost(car, id);
     if (cost === null || data.wallet < cost) return false;
     data.wallet -= cost;
-    data.upgrades[id]++;
+    const rec = (data.upgrades[car] ??= {});
+    rec[id] = (rec[id] ?? 0) + 1;
     persist();
     return true;
   },

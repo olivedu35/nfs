@@ -1,6 +1,6 @@
 import './style.css';
 import { registerSW } from 'virtual:pwa-register';
-import { CARS, COSMETIC_SLOTS, COSMETICS, CosmeticSlot, UPGRADES, UPGRADE_COSTS, UpgradeId } from './config';
+import { CARS, COSMETIC_SLOTS, COSMETICS, CosmeticSlot, UPGRADE_COSTS, UPGRADE_FX, UPGRADES, UpgradeId } from './config';
 import { CHAMP_BONUS, CHAMP_POINTS, Championship } from './game/Championship';
 import {
   CAR_UNLOCK,
@@ -135,7 +135,6 @@ function boot(): void {
     </div>`);
   ui.appendChild(garage);
   const carsEl = garage.querySelector('.cars') as HTMLDivElement;
-  const bar = (v: number): string => `<div class="stat"><i style="width:${Math.round(v * 100)}%"></i></div>`;
   CARS.forEach((c, i) => {
     const hex = `#${c.color.toString(16).padStart(6, '0')}`;
     const reqTier = CAR_UNLOCK[c.id] ? CAREER.find((t) => t.id === CAR_UNLOCK[c.id]) : null;
@@ -143,22 +142,36 @@ function boot(): void {
       h(`<button class="car" data-i="${i}" style="--c:${hex}">
         <div class="swatch"></div>
         <b>${c.name}</b>
-        <label>VITESSE</label>${bar(c.stats.speed)}
-        <label>ACCÉL.</label>${bar(c.stats.accel)}
-        <label>MANIA.</label>${bar(c.stats.handling)}
+        <label>VITESSE</label><div class="stat"><i data-stat="speed"></i></div>
+        <label>ACCÉL.</label><div class="stat"><i data-stat="accel"></i></div>
+        <label>MANIA.</label><div class="stat"><i data-stat="handling"></i></div>
+        <small class="upg-count"></small>
         ${reqTier ? `<div class="lock">🔒 CARRIÈRE : ${reqTier.name}</div>` : ''}
       </button>`),
     );
   });
+  /** Niveau d'amélioration total d'une voiture (pour l'affichage « N pièces montées »). */
+  const carUpgradeCount = (car: number): number => UPGRADES.reduce((n, u) => n + Save.level(car, u.id), 0);
   const note = garage.querySelector('.note') as HTMLDivElement;
 
   const refreshGarage = (): void => {
     const s = Save.settings;
     carsEl.querySelectorAll<HTMLElement>('.car').forEach((el) => {
-      const unlocked = Save.isCarUnlocked(CARS[Number(el.dataset.i)].id);
-      el.classList.toggle('sel', Number(el.dataset.i) === s.car);
+      const i = Number(el.dataset.i);
+      const c = CARS[i];
+      const unlocked = Save.isCarUnlocked(c.id);
+      el.classList.toggle('sel', i === s.car);
       el.classList.toggle('locked', !unlocked);
       (el as HTMLButtonElement).disabled = !unlocked;
+      const speedV = c.stats.speed * UPGRADE_FX.engine(Save.level(i, 'engine'));
+      const accelV = c.stats.accel * UPGRADE_FX.turbo(Save.level(i, 'turbo'));
+      const handV = c.stats.handling * UPGRADE_FX.tires(Save.level(i, 'tires'));
+      (el.querySelector('[data-stat="speed"]') as HTMLElement).style.width = `${Math.min(100, Math.round(speedV * 100))}%`;
+      (el.querySelector('[data-stat="accel"]') as HTMLElement).style.width = `${Math.min(100, Math.round(accelV * 100))}%`;
+      (el.querySelector('[data-stat="handling"]') as HTMLElement).style.width = `${Math.min(100, Math.round(handV * 100))}%`;
+      const n = carUpgradeCount(i);
+      const countEl = el.querySelector('.upg-count') as HTMLElement;
+      countEl.textContent = n > 0 ? `🔧 ${n}/${UPGRADES.length * UPGRADE_COSTS.length} PIÈCES` : '';
     });
     garage.querySelectorAll<HTMLElement>('.seg button').forEach((b) => {
       b.classList.toggle('sel', b.dataset.v === s.control);
@@ -258,9 +271,39 @@ function boot(): void {
     show(garage);
   });
 
-  // Boutique
+  // Boutique : améliorations mécaniques, propres à chaque voiture
+  const statPreview = (carIdx: number, id: UpgradeId, level: number): { label: string; before: string; after: string } => {
+    const c = CARS[carIdx];
+    switch (id) {
+      case 'engine': {
+        const kmh = (l: number): number => Math.round(c.maxSpeed * UPGRADE_FX.engine(l) * 3.6);
+        return { label: 'VITESSE MAX', before: `${kmh(level)} KM/H`, after: `${kmh(level + 1)} KM/H` };
+      }
+      case 'turbo': {
+        const a = (l: number): string => (c.accel * UPGRADE_FX.turbo(l)).toFixed(1);
+        return { label: 'ACCÉLÉRATION', before: `${a(level)} M/S²`, after: `${a(level + 1)} M/S²` };
+      }
+      case 'tires': {
+        const hd = (l: number): string => (c.handling * UPGRADE_FX.tires(l)).toFixed(2);
+        return { label: 'MANIABILITÉ', before: hd(level), after: hd(level + 1) };
+      }
+      case 'brakes': {
+        const b = (l: number): number => Math.round(UPGRADE_FX.brakeMul(l) * 100);
+        return { label: 'PUISSANCE DE FREINAGE', before: `${b(level)}%`, after: `${b(level + 1)}%` };
+      }
+      case 'nitro': {
+        const ch = (l: number): number => Math.round(UPGRADE_FX.nitroCharge(l) * 100);
+        return { label: 'RECHARGE NITRO', before: `${ch(level)}%`, after: `${ch(level + 1)}%` };
+      }
+      case 'magnet': {
+        const r = (l: number): number => UPGRADE_FX.magnetRadius(l);
+        return { label: 'PORTÉE AIMANT', before: `${r(level)} M`, after: `${r(level + 1)} M` };
+      }
+    }
+  };
   const shop = h(`<div class="screen overlay shop" hidden>
       <div class="shop-head"><button data-a="back">◀ GARAGE</button><h2>BOUTIQUE</h2><div class="wallet"></div></div>
+      <div class="shop-car-name"></div>
       <div class="shop-list"></div>
     </div>`);
   ui.appendChild(shop);
@@ -268,29 +311,48 @@ function boot(): void {
   for (const u of UPGRADES) {
     shopList.appendChild(
       h(`<div class="upg" data-id="${u.id}">
-        <div class="upg-txt"><b>${u.name}</b><small>${u.desc}</small></div>
+        <div class="upg-txt">
+          <b>${u.name}</b><small>${u.desc}</small>
+          <small class="upg-tier"></small>
+          <small class="upg-stat"></small>
+        </div>
         <div class="pips">${UPGRADE_COSTS.map(() => '<i></i>').join('')}</div>
         <button class="buy" data-buy="${u.id}"></button>
       </div>`),
     );
   }
   const refreshShop = (): void => {
+    const car = Save.settings.car;
     (shop.querySelector('.wallet') as HTMLElement).innerHTML = `<span class="bin-ico"></span>${fmt(Save.wallet)} PTS`;
+    (shop.querySelector('.shop-car-name') as HTMLElement).textContent = CARS[car].name;
     shopList.querySelectorAll<HTMLElement>('.upg').forEach((row) => {
       const id = row.dataset.id as UpgradeId;
-      const lvl = Save.level(id);
+      const u = UPGRADES.find((x) => x.id === id)!;
+      const lvl = Save.level(car, id);
       row.querySelectorAll('.pips i').forEach((p, i) => p.classList.toggle('on', i < lvl));
       const btn = row.querySelector('.buy') as HTMLButtonElement;
-      const cost = Save.nextCost(id);
-      btn.textContent = cost === null ? 'MAX' : fmt(cost);
-      btn.disabled = cost === null || Save.wallet < cost;
-      row.classList.toggle('maxed', cost === null);
+      const cost = Save.nextCost(car, id);
+      const maxed = cost === null;
+      btn.textContent = maxed ? 'MAX' : fmt(cost);
+      btn.disabled = maxed || Save.wallet < cost;
+      row.classList.toggle('maxed', maxed);
+      const current = lvl === 0 ? "D'ORIGINE" : u.tiers[lvl - 1];
+      (row.querySelector('.upg-tier') as HTMLElement).textContent = maxed
+        ? `${current} · NIVEAU MAX`
+        : `${current} → ${u.tiers[lvl]}`;
+      if (!maxed) {
+        const p = statPreview(car, id, lvl);
+        (row.querySelector('.upg-stat') as HTMLElement).innerHTML =
+          `${p.label} : ${p.before} <span class="arrow">→</span> <b class="gain">${p.after}</b>`;
+      } else {
+        (row.querySelector('.upg-stat') as HTMLElement).textContent = '';
+      }
     });
   };
   shopList.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-buy]');
     if (!btn || btn.disabled) return;
-    if (!Save.buy(btn.dataset.buy as UpgradeId)) return;
+    if (!Save.buy(Save.settings.car, btn.dataset.buy as UpgradeId)) return;
     game.sound.unlock();
     game.sound.clang(3);
     const row = btn.closest('.upg') as HTMLElement;
