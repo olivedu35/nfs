@@ -10,7 +10,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
+  MeshToonMaterial,
   Object3D,
   PlaneGeometry,
   ShaderMaterial,
@@ -24,6 +24,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { AI, RAMP, TRACK } from '../config';
 import { TrackDef, TrackTheme, trackCurve } from './tracks';
 import { mulberry32 } from './rng';
+import { toonGradientSoft } from './Toon';
 
 const RAMP_COLOR = 0xffb020;
 const RAMP_SIDE_COLOR = 0x2a2416;
@@ -226,7 +227,7 @@ export class Track {
     // Sol
     const ground = new Mesh(
       new PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2),
-      new MeshLambertMaterial({ color: this.theme.ground }),
+      new MeshToonMaterial({ color: this.theme.ground, gradientMap: toonGradientSoft }),
     );
     ground.position.set((this.minX + this.maxX) / 2, 0, (this.minZ + this.maxZ) / 2);
     this.group.add(ground);
@@ -248,7 +249,7 @@ export class Track {
     roadGeo.setAttribute('position', new BufferAttribute(roadPos, 3));
     roadGeo.setIndex(roadIdx);
     roadGeo.computeVertexNormals();
-    this.group.add(new Mesh(roadGeo, new MeshLambertMaterial({ color: this.theme.road })));
+    this.group.add(new Mesh(roadGeo, new MeshToonMaterial({ color: this.theme.road, gradientMap: toonGradientSoft })));
 
     // Marquages (pointillés, bordures rouges/blanches, ligne d'arrivée) : une seule géométrie colorée
     const mPos: number[] = [];
@@ -294,7 +295,9 @@ export class Track {
 
     // Murets (deux rubans verticaux)
     const wallGeo = this.buildWalls(hw + 1.6, TRACK.wallHeight);
-    this.group.add(new Mesh(wallGeo, new MeshLambertMaterial({ color: this.theme.wall, side: DoubleSide })));
+    this.group.add(
+      new Mesh(wallGeo, new MeshToonMaterial({ color: this.theme.wall, side: DoubleSide, gradientMap: toonGradientSoft })),
+    );
     // liseré lumineux sur les murets
     const stripGeo = this.buildWalls(hw + 1.55, 0.12, TRACK.wallHeight - 0.2);
     this.group.add(new Mesh(stripGeo, new MeshBasicMaterial({ color: this.theme.strip, side: DoubleSide })));
@@ -345,11 +348,13 @@ export class Track {
     const topGeo = new BufferGeometry();
     topGeo.setAttribute('position', new BufferAttribute(new Float32Array(top), 3));
     topGeo.computeVertexNormals();
-    this.group.add(new Mesh(topGeo, new MeshLambertMaterial({ color: RAMP_COLOR, side: DoubleSide })));
+    this.group.add(new Mesh(topGeo, new MeshToonMaterial({ color: RAMP_COLOR, side: DoubleSide, gradientMap: toonGradientSoft })));
     const sideGeo = new BufferGeometry();
     sideGeo.setAttribute('position', new BufferAttribute(new Float32Array(sides), 3));
     sideGeo.computeVertexNormals();
-    this.group.add(new Mesh(sideGeo, new MeshLambertMaterial({ color: RAMP_SIDE_COLOR, side: DoubleSide })));
+    this.group.add(
+      new Mesh(sideGeo, new MeshToonMaterial({ color: RAMP_SIDE_COLOR, side: DoubleSide, gradientMap: toonGradientSoft })),
+    );
   }
 
   private buildWalls(offset: number, height: number, base = 0): BufferGeometry {
@@ -383,7 +388,7 @@ export class Track {
     parts.push(new BoxGeometry(0.6, 7, 0.6).translate(-hw, 3.5, 0));
     parts.push(new BoxGeometry(0.6, 7, 0.6).translate(hw, 3.5, 0));
     parts.push(new BoxGeometry(hw * 2 + 0.6, 1.4, 0.5).translate(0, 7, 0));
-    const frame = new Mesh(mergeGeometries(parts), new MeshLambertMaterial({ color: 0x22242e }));
+    const frame = new Mesh(mergeGeometries(parts), new MeshToonMaterial({ color: 0x22242e, gradientMap: toonGradientSoft }));
     const banner = new Mesh(
       new BoxGeometry(hw * 2 - 2, 0.9, 0.55).translate(0, 7, 0),
       new MeshBasicMaterial({ color: this.theme.banner }),
@@ -409,7 +414,7 @@ export class Track {
     const count = spots.length;
     const poles = new InstancedMesh(
       new CylinderGeometry(0.12, 0.16, 7, 5).translate(0, 3.5, 0),
-      new MeshLambertMaterial({ color: 0x555a6a }),
+      new MeshToonMaterial({ color: 0x555a6a, gradientMap: toonGradientSoft }),
       count,
     );
     const heads = new InstancedMesh(

@@ -5,7 +5,7 @@ import {
   Euler,
   InstancedMesh,
   Matrix4,
-  MeshLambertMaterial,
+  MeshToonMaterial,
   Quaternion,
   Vector3,
 } from 'three';
@@ -14,6 +14,7 @@ import { BINS } from '../config';
 import { tint } from './CarModel';
 import { mulberry32 } from './rng';
 import { Track, TrackSample } from './Track';
+import { toonGradient } from './Toon';
 
 const GRAVITY = 22;
 const RADIUS = 0.42;
@@ -90,7 +91,11 @@ export class Bins {
       tint(new CylinderGeometry(RADIUS * 1.1, RADIUS * 1.1, 0.1, 9).translate(0, HALF_H - 0.05, 0), [0.55, 0.55, 0.55]),
       tint(new BoxGeometry(0.3, 0.06, 0.1).translate(0, HALF_H + 0.03, 0), [0.3, 0.3, 0.3]),
     ]);
-    this.mesh = new InstancedMesh(geo, new MeshLambertMaterial({ vertexColors: true }), this.bins.length);
+    this.mesh = new InstancedMesh(
+      geo,
+      new MeshToonMaterial({ vertexColors: true, gradientMap: toonGradient }),
+      this.bins.length,
+    );
     this.mesh.frustumCulled = false;
     const c = new Color();
     this.bins.forEach((b, i) => {
@@ -98,7 +103,11 @@ export class Bins {
       this.mesh.setColorAt(i, c.setHex(BIN_COLORS[Math.floor(rand() * BIN_COLORS.length)]));
     });
 
-    this.debrisMesh = new InstancedMesh(new BoxGeometry(0.22, 0.12, 0.18), new MeshLambertMaterial(), DEBRIS);
+    this.debrisMesh = new InstancedMesh(
+      new BoxGeometry(0.22, 0.12, 0.18),
+      new MeshToonMaterial({ gradientMap: toonGradient }),
+      DEBRIS,
+    );
     this.debrisMesh.frustumCulled = false;
     for (let i = 0; i < DEBRIS; i++) {
       this.debris.push({ x: 0, y: -10, z: 0, vx: 0, vy: 0, vz: 0, life: 0, spin: 0 });
@@ -109,9 +118,9 @@ export class Bins {
 
   dispose(): void {
     this.mesh.geometry.dispose();
-    (this.mesh.material as MeshLambertMaterial).dispose();
+    (this.mesh.material as MeshToonMaterial).dispose();
     this.debrisMesh.geometry.dispose();
-    (this.debrisMesh.material as MeshLambertMaterial).dispose();
+    (this.debrisMesh.material as MeshToonMaterial).dispose();
     this.mesh.dispose();
     this.debrisMesh.dispose();
   }

@@ -1,14 +1,44 @@
 :root {
+  /* couleurs : palette néon restreinte, cohérente d'un écran à l'autre */
   --bg: #0b0d1a;
   --fg: #f4f6ff;
   --accent: #ff2d55;
   --cyan: #2de2ff;
   --gold: #ffd23f;
+  --green: #7dff6a;
+
+  /* surfaces (cartes, panneaux) et bordures : un seul jeu de valeurs partagé */
+  --surface: rgba(255, 255, 255, 0.07);
+  --surface-2: rgba(255, 255, 255, 0.13);
+  --surface-hover: rgba(255, 255, 255, 0.2);
+  --overlay: rgba(8, 10, 22, 0.82);
+  --border: rgba(255, 255, 255, 0.2);
+  --border-strong: rgba(255, 255, 255, 0.35);
+
+  /* rayons */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 18px;
+
+  /* échelle typographique : du plus petit (micro-label) au plus grand (titre d'écran) */
+  --fs-xs: 0.62rem;
+  --fs-sm: 0.72rem;
+  --fs-base: 0.85rem;
+  --fs-md: 0.95rem;
+  --fs-lg: 1.1rem;
+  --fs-xl: 1.4rem;
+  --fs-2xl: clamp(1.8rem, 6.5vw, 3.4rem);
+  --fs-display: clamp(2.4rem, 9vw, 5rem);
+
+  /* polices : Orbitron pour la marque / les titres / les chiffres du HUD, système pour le texte dense */
+  --font-display: 'Orbitron', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
   color: var(--fg);
   background: var(--bg);
 }
@@ -57,9 +87,9 @@ body {
 button {
   font: inherit;
   color: inherit;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  border: 2px solid var(--border-strong);
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 10px 16px;
   min-height: 48px;
   font-weight: 700;
@@ -69,13 +99,14 @@ button {
 
 button:active {
   transform: scale(0.96);
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--surface-hover);
 }
 
 button.big {
   background: var(--accent);
   border-color: var(--accent);
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
   padding: 12px 28px;
   min-height: 56px;
   box-shadow: 0 0 24px rgba(255, 45, 85, 0.5);
@@ -113,14 +144,15 @@ button.big {
 }
 
 .overlay {
-  background: rgba(8, 10, 22, 0.82);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 
 .logo {
   margin: 0;
-  font-size: clamp(2.4rem, 9vw, 5rem);
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
   font-style: italic;
   font-weight: 900;
   letter-spacing: 0.04em;
@@ -162,7 +194,7 @@ button.big {
 
 .qr {
   background: #fff;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 6px;
   line-height: 0;
 }
@@ -191,6 +223,14 @@ button.big {
   gap: 10px;
 }
 
+.car,
+.track-card,
+.career-card {
+  /* langage de carte partagé : même surface, même bordure pour les trois familles de cartes */
+  background: var(--surface);
+  border-color: var(--border);
+}
+
 .car {
   --c: #fff;
   width: clamp(110px, 17vw, 160px);
@@ -199,7 +239,6 @@ button.big {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .car.sel {
@@ -229,7 +268,7 @@ button.big {
   margin-top: 2px;
   font-size: 0.58rem;
   font-weight: 700;
-  color: #7dff6a;
+  color: var(--green);
 }
 
 .car.locked {
@@ -275,11 +314,11 @@ button.big {
 }
 
 .seg button:first-child {
-  border-radius: 12px 0 0 12px;
+  border-radius: var(--r-md) 0 0 var(--r-md);
 }
 
 .seg button:last-child {
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 var(--r-md) var(--r-md) 0;
   border-left: none;
 }
 
@@ -342,6 +381,7 @@ button.big {
 
 .fshelp h2 {
   margin: 0;
+  font-family: var(--font-display);
   font-size: 1.6rem;
   font-style: italic;
 }
@@ -373,7 +413,7 @@ button.big {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface);
   border-radius: 10px;
   padding: 6px 12px;
 }
@@ -394,8 +434,8 @@ button.big {
 /* ---------------------------------------------------------------- boutique */
 .shop-btn {
   background: rgba(125, 255, 106, 0.15);
-  border-color: #7dff6a;
-  color: #7dff6a;
+  border-color: var(--green);
+  color: var(--green);
 }
 
 .shop {
@@ -404,6 +444,7 @@ button.big {
 }
 
 .shop h2 {
+  font-family: var(--font-display);
   font-size: 1.6rem;
 }
 
@@ -423,7 +464,7 @@ button.big {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #7dff6a;
+  color: var(--green);
   font-weight: 900;
   font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
@@ -441,15 +482,17 @@ button.big {
   align-items: center;
   gap: 12px;
   padding: 8px 4px 8px 12px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface);
   text-align: left;
 }
 
-.shop-car-name {
+.shop-car-name,
+.cust-car-name {
+  font-family: var(--font-display);
   font-style: italic;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
   font-weight: 900;
   color: var(--cyan);
   flex-shrink: 0;
@@ -502,7 +545,7 @@ button.big {
 }
 
 .upg-stat .gain {
-  color: #7dff6a;
+  color: var(--green);
   font-style: italic;
 }
 
@@ -520,7 +563,7 @@ button.big {
 }
 
 .pips i.on {
-  background: #7dff6a;
+  background: var(--green);
   box-shadow: 0 0 8px rgba(125, 255, 106, 0.7);
 }
 
@@ -528,15 +571,15 @@ button.big {
   min-width: 92px;
   min-height: 40px;
   padding: 4px 10px;
-  background: #7dff6a;
-  border-color: #7dff6a;
+  background: var(--green);
+  border-color: var(--green);
   color: #000;
   font-variant-numeric: tabular-nums;
 }
 
 .buy:disabled {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--border);
   color: rgba(255, 255, 255, 0.4);
 }
 
@@ -545,7 +588,7 @@ button.big {
 }
 
 .earn {
-  color: #7dff6a;
+  color: var(--green);
   font-weight: 800;
 }
 
@@ -567,6 +610,7 @@ button.big {
 }
 
 .career-rank b {
+  font-family: var(--font-display);
   color: var(--gold);
   font-style: italic;
 }
@@ -583,7 +627,7 @@ button.big {
 }
 
 .career-tier.cleared .career-tier-head b {
-  color: #7dff6a;
+  color: var(--green);
 }
 
 .career-tier-head {
@@ -619,7 +663,7 @@ button.big {
   gap: 4px;
   padding: 8px 10px;
   text-align: left;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--border);
 }
 
 .career-card b {
@@ -640,11 +684,11 @@ button.big {
 }
 
 .career-card.done {
-  border-color: #7dff6a;
+  border-color: var(--green);
 }
 
 .career-card.done .status {
-  color: #7dff6a;
+  color: var(--green);
 }
 
 .career-card.locked {
@@ -655,14 +699,6 @@ button.big {
 .customize {
   gap: 16px;
   justify-content: flex-start;
-}
-
-.cust-car-name {
-  font-style: italic;
-  font-size: 1.2rem;
-  font-weight: 900;
-  color: var(--cyan);
-  flex-shrink: 0;
 }
 
 .cust-slots {
@@ -713,12 +749,12 @@ button.big {
 }
 
 .cust-opt.owned {
-  border-color: #7dff6a;
+  border-color: var(--green);
 }
 
 .cust-opt.equipped {
-  background: #7dff6a;
-  border-color: #7dff6a;
+  background: var(--green);
+  border-color: var(--green);
   color: #000;
 }
 
@@ -743,6 +779,7 @@ button.big {
 .tracksel h2,
 .champintro h2 {
   margin: 0;
+  font-family: var(--font-display);
   font-size: 1.6rem;
   font-style: italic;
 }
@@ -764,9 +801,9 @@ button.big {
   gap: 2px;
   padding: 8px 10px;
   text-align: left;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
   min-height: 0;
 }
 
@@ -806,7 +843,7 @@ button.track-card:active {
 }
 
 .champ-rules b {
-  color: #7dff6a;
+  color: var(--green);
 }
 
 .res-sub {
@@ -838,7 +875,7 @@ button.track-card:active {
 }
 
 .standings td.gain {
-  color: #7dff6a;
+  color: var(--green);
   font-weight: 800;
 }
 
@@ -877,18 +914,12 @@ button.track-card:active {
   color: var(--gold);
 }
 
-.final h2 {
-  margin: 0;
-  font-size: clamp(2rem, 7vw, 3.4rem);
-  font-style: italic;
-  font-weight: 900;
-}
-
-/* ---------------------------------------------------------------- résultats / pause */
+.final h2,
 .pause-screen h2,
 .results h2 {
   margin: 0;
-  font-size: clamp(2rem, 7vw, 3.4rem);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
   font-style: italic;
   font-weight: 900;
 }
@@ -978,6 +1009,7 @@ button.track-card:active {
 }
 
 .pos {
+  font-family: var(--font-display);
   font-size: 2.2rem;
   font-style: italic;
   line-height: 1;
@@ -997,7 +1029,7 @@ button.track-card:active {
   align-items: center;
   gap: 6px;
   font-size: 1rem;
-  color: #7dff6a;
+  color: var(--green);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1017,7 +1049,7 @@ button.track-card:active {
   width: 12px;
   height: 15px;
   margin-top: 3px;
-  background: #7dff6a;
+  background: var(--green);
   border-radius: 1px 1px 3px 3px;
 }
 
@@ -1028,7 +1060,7 @@ button.track-card:active {
   right: -2px;
   top: -4px;
   height: 3px;
-  background: #7dff6a;
+  background: var(--green);
   border-radius: 1px;
 }
 
@@ -1042,6 +1074,7 @@ button.track-card:active {
 }
 
 .time {
+  font-family: var(--font-display);
   font-size: 1.5rem;
 }
 
@@ -1060,7 +1093,7 @@ button.track-card:active {
   width: 130px;
   height: 130px;
   display: block;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: rgba(0, 0, 0, 0.35);
 }
 
@@ -1077,6 +1110,7 @@ button.track-card:active {
 }
 
 .speed {
+  font-family: var(--font-display);
   font-size: 2.6rem;
   font-style: italic;
   line-height: 1;
@@ -1236,9 +1270,9 @@ button.track-card:active {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.13);
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  border: 2px solid var(--border-strong);
   font-weight: 900;
   font-size: 0.9rem;
   letter-spacing: 0.05em;

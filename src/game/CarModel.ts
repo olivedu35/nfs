@@ -1,5 +1,6 @@
 import {
   AdditiveBlending,
+  BackSide,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -10,11 +11,11 @@ import {
   InstancedMesh,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
-  MeshStandardMaterial,
+  MeshToonMaterial,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CarCosmetics, STOCK_COSMETICS } from '../config';
+import { toonGradient } from './Toon';
 
 /** Applique une couleur de sommet uniforme et retire les UV (inutiles, pas de textures). */
 export function tint(g: BufferGeometry, c: number | [number, number, number]): BufferGeometry {
@@ -156,12 +157,18 @@ export const beamMat = new MeshBasicMaterial({
   side: DoubleSide,
 });
 
-const neutralMat = new MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.2 });
+const neutralMat = new MeshToonMaterial({ color: 0xffffff, vertexColors: true, gradientMap: toonGradient });
+/** Silhouette noire derrière la carrosserie (coque inversée) : le contour cell-shadé qui « assume » le style bas-poly. */
+const outlineMat = new MeshBasicMaterial({ color: 0x0a0a14, side: BackSide });
+const OUTLINE_SCALE = 1.035;
 
 export function createCarMesh(color: number, cosmetics: CarCosmetics = STOCK_COSMETICS): Group {
   const g = new Group();
-  // peinture carrosserie : légèrement glacée (vernis), sans être un miroir (pas d'env map)
-  const carMat = new MeshStandardMaterial({ color, vertexColors: true, roughness: 0.35, metalness: 0.15 });
+  const outline = new Mesh(CarGeo.body, outlineMat);
+  outline.scale.setScalar(OUTLINE_SCALE);
+  g.add(outline);
+  // peinture carrosserie : ombrage à paliers (toon), pas de dégradé PBR continu
+  const carMat = new MeshToonMaterial({ color, vertexColors: true, gradientMap: toonGradient });
   g.add(new Mesh(CarGeo.body, carMat));
   g.add(new Mesh(CarGeo.lights, lightMat));
   g.add(new Mesh(CarGeo.beam, beamMat));
@@ -181,7 +188,11 @@ export function createCarInstances(count: number): {
   lights: InstancedMesh;
   beam: InstancedMesh;
 } {
-  const body = new InstancedMesh(CarGeo.body, new MeshLambertMaterial({ vertexColors: true }), count);
+  const body = new InstancedMesh(
+    CarGeo.body,
+    new MeshToonMaterial({ vertexColors: true, gradientMap: toonGradient }),
+    count,
+  );
   const lights = new InstancedMesh(CarGeo.lights, lightMat, count);
   const beam = new InstancedMesh(CarGeo.beam, beamMat, count);
   for (const m of [body, lights, beam]) m.frustumCulled = false;

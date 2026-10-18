@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshToonMaterial } from 'three';
 import { POLICE, TRACK } from '../config';
 import { createCarMesh, createSirenLights } from './CarModel';
 import { RailBody } from './Rail';
@@ -25,7 +25,7 @@ export class Police extends RailBody {
   private hitCooldown = 0;
   private wreckTimer = 0;
   private blink = 0;
-  private bodyMat: MeshLambertMaterial;
+  private bodyMat: MeshToonMaterial;
   private smoke: Mesh[] = [];
 
   constructor(track: Track) {
@@ -35,7 +35,8 @@ export class Police extends RailBody {
     this.red = siren.red;
     this.blue = siren.blue;
     this.mesh.add(siren.group);
-    this.bodyMat = (this.mesh.children[0] as Mesh).material as MeshLambertMaterial;
+    // children[0] = silhouette d'outline, children[1] = carrosserie peinte
+    this.bodyMat = (this.mesh.children[1] as Mesh).material as MeshToonMaterial;
     // fumée de l'épave : quelques cubes gris qui montent en boucle
     const puffGeo = new BoxGeometry(0.7, 0.7, 0.7);
     const puffMat = new MeshBasicMaterial({ color: 0x555560, transparent: true, opacity: 0.55, depthWrite: false });
