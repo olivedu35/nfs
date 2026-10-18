@@ -39,7 +39,7 @@ export const CAREER: CareerTier[] = [
     events: [
       { id: 'rookie-1', trackId: 'downtown', type: 'race', target: 4, reward: 3000 },
       { id: 'rookie-2', trackId: 'port', type: 'race', target: 3, reward: 3500 },
-      { id: 'rookie-3', trackId: 'chinatown', type: 'score', target: 6000, reward: 4000 },
+      { id: 'rookie-3', trackId: 'chinatown', type: 'score', target: 600, reward: 4000 },
       { id: 'rookie-4', trackId: 'autoroute', type: 'race', target: 3, reward: 5000 },
     ],
   },
@@ -51,7 +51,7 @@ export const CAREER: CareerTier[] = [
     tierBonus: 15000,
     events: [
       { id: 'confirme-1', trackId: 'downtown', type: 'race', target: 2, reward: 6000 },
-      { id: 'confirme-2', trackId: 'port', type: 'score', target: 15000, reward: 7000 },
+      { id: 'confirme-2', trackId: 'port', type: 'score', target: 1500, reward: 7000 },
       { id: 'confirme-3', trackId: 'chinatown', type: 'race', target: 2, reward: 7000 },
       { id: 'confirme-4', trackId: 'autoroute', type: 'race', target: 2, reward: 8000 },
     ],
@@ -64,7 +64,7 @@ export const CAREER: CareerTier[] = [
     events: [
       { id: 'pro-1', trackId: 'downtown', type: 'race', target: 1, reward: 10000 },
       { id: 'pro-2', trackId: 'port', type: 'race', target: 1, reward: 10000 },
-      { id: 'pro-3', trackId: 'chinatown', type: 'score', target: 30000, reward: 12000 },
+      { id: 'pro-3', trackId: 'chinatown', type: 'score', target: 3000, reward: 12000 },
       { id: 'pro-4', trackId: 'autoroute', type: 'race', target: 1, reward: 14000 },
     ],
   },
@@ -75,7 +75,7 @@ export const CAREER: CareerTier[] = [
     tierBonus: 40000,
     events: [
       { id: 'legende-1', trackId: 'downtown', type: 'race', target: 1, reward: 16000 },
-      { id: 'legende-2', trackId: 'port', type: 'score', target: 45000, reward: 16000 },
+      { id: 'legende-2', trackId: 'port', type: 'score', target: 4500, reward: 16000 },
       { id: 'legende-3', trackId: 'chinatown', type: 'race', target: 1, reward: 18000 },
       { id: 'legende-4', trackId: 'autoroute', type: 'race', target: 1, reward: 30000 },
     ],

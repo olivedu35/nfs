@@ -101,10 +101,20 @@ export const NITRO = {
 export const RAMP = {
   length: 11, // m, longueur de la montée du tremplin
   height: 2.2, // m, hauteur en bout de tremplin
+  /** le tremplin ne prend qu'un tiers de la largeur de la route : il faut viser */
+  halfWidth: TRACK.halfWidth / 3,
   minSpeed: 14, // m/s, vitesse mini pour décoller proprement
   launchSpeed: 12, // m/s, vitesse verticale au décollage
   gravity: 18, // m/s²
   nitroPerSecond: 0.5, // remplissage de la jauge nitro par seconde passée en l'air
+};
+
+/** Bonus aléatoire temporaire au décollage d'un tremplin (un seul tiré, parmi ceux pertinents). */
+export const RAMP_BONUS = {
+  nitroDuration: 3, // s de boost nitro gratuit (ne consomme pas la jauge)
+  magnetDuration: 7, // s d'aimant à poubelles temporaire
+  magnetRadius: 16, // m, portée pendant le bonus (indépendante de l'amélioration AIMANT)
+  magnetPull: 22, // m/s, vitesse d'attraction pendant le bonus
 };
 
 export const AI = {
@@ -192,7 +202,10 @@ export const BINS = {
   spacing: 26, // m entre deux groupes de poubelles
   lateralMin: 6.4, // hors des files de l'IA et du trafic, côté trottoir
   lateralMax: 8.6,
-  points: 1000, // ×10 : c'est la monnaie de la boutique
+  // Base d'une poubelle : volontairement modeste pour que le score (= monnaie du portefeuille)
+  // reste cohérent avec le coût des améliorations (1000-6000 PTS) et les primes de carrière/
+  // championnat (quelques milliers à quelques dizaines de milliers) plutôt que de les écraser.
+  points: 100,
   comboWindow: 2.5, // s pour enchaîner un combo
   maxCombo: 5,
   respawnTime: 8, // s avant réapparition (hors de vue)

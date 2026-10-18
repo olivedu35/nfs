@@ -101,8 +101,12 @@ export class Track {
     this.buildMeshes();
   }
 
-  /** Zone de tremplin contenant s, ou null. */
-  rampZoneAt(s: number): RampZone | null {
+  /**
+   * Zone de tremplin contenant s, ou null. Le tremplin ne prend qu'un tiers de la route :
+   * si lateral est fourni, il faut aussi viser juste (sinon on roule à côté, sur le plat).
+   */
+  rampZoneAt(s: number, lateral?: number): RampZone | null {
+    if (lateral !== undefined && Math.abs(lateral) > RAMP.halfWidth) return null;
     for (const r of this.ramps) {
       if (r.s0 <= r.s1) {
         if (s >= r.s0 && s <= r.s1) return r;
@@ -304,7 +308,7 @@ export class Track {
   /** Tremplins : rampe qui monte depuis la route jusqu'à RAMP.height, striée pour la visibilité. */
   private buildRamps(): void {
     if (this.ramps.length === 0) return;
-    const hw = TRACK.halfWidth - 0.3;
+    const hw = RAMP.halfWidth;
     const segs = 14;
     const top: number[] = [];
     const sides: number[] = [];

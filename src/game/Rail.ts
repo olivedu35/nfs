@@ -76,7 +76,7 @@ export class RailBody {
 
   /** Tremplins : suit la pente en montant, puis décolle en bout de rampe (gravité ensuite). */
   private applyRamp(dt: number): void {
-    const zone = this.track.rampZoneAt(this.s);
+    const zone = this.track.rampZoneAt(this.s, this.lane);
     if (zone) {
       let d = this.s - zone.s0;
       if (d < 0) d += this.track.length;

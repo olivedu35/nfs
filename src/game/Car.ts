@@ -34,7 +34,11 @@ export class Car {
   lastAirTime = 0;
   /** signalé à l'instant de l'atterrissage ; lu puis remis à false par le jeu */
   justLanded = false;
+  /** signalé à l'instant du décollage (vitesse suffisante) ; lu puis remis à false par le jeu */
+  justLaunched = false;
   private onRamp = false;
+  /** boost nitro gratuit (bonus tremplin), en secondes restantes : ne consomme pas la jauge */
+  freeBoost = 0;
   steer = 0;
   nitro = NITRO.start;
   nitroActive = false;
@@ -75,7 +79,9 @@ export class Car {
     this.airTime = 0;
     this.lastAirTime = 0;
     this.justLanded = false;
+    this.justLaunched = false;
     this.onRamp = false;
+    this.freeBoost = 0;
     track.project(x, z, -1, this.proj);
   }
 
@@ -96,9 +102,10 @@ export class Car {
       this.steer += clamp(target - this.steer, -rate, rate);
     }
 
-    // Nitro
-    this.nitroActive = input.nitro && this.nitro > 0.01 && fwd > 5;
-    if (this.nitroActive) this.nitro = Math.max(0, this.nitro - NITRO.drain * this.nitroDrainMul * dt);
+    // Nitro (le boost gratuit du bonus tremplin ne consomme pas la jauge)
+    if (this.freeBoost > 0) this.freeBoost = Math.max(0, this.freeBoost - dt);
+    this.nitroActive = (input.nitro && this.nitro > 0.01 && fwd > 5) || this.freeBoost > 0;
+    if (this.nitroActive && this.freeBoost <= 0) this.nitro = Math.max(0, this.nitro - NITRO.drain * this.nitroDrainMul * dt);
     const maxV = spec.maxSpeed * (this.nitroActive ? NITRO.boostSpeed : 1);
 
     // Drift : frein + braquage à haute vitesse = adhérence réduite
@@ -165,7 +172,7 @@ export class Car {
 
   /** Tremplins : la voiture suit la pente en montant, puis décolle en bout de rampe. */
   private applyRamp(dt: number, track: Track): void {
-    const zone = track.rampZoneAt(this.proj.s);
+    const zone = track.rampZoneAt(this.proj.s, this.proj.lateral);
     if (zone) {
       let d = this.proj.s - zone.s0;
       if (d < 0) d += track.length;
@@ -178,7 +185,10 @@ export class Car {
     }
     if (this.onRamp) {
       this.onRamp = false;
-      if (this.forwardSpeed > RAMP.minSpeed) this.vy = RAMP.launchSpeed;
+      if (this.forwardSpeed > RAMP.minSpeed) {
+        this.vy = RAMP.launchSpeed;
+        this.justLaunched = true;
+      }
     }
     if (this.y > 0 || this.vy !== 0) {
       this.vy -= RAMP.gravity * dt;

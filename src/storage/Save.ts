@@ -30,6 +30,8 @@ interface SaveData {
   cosmeticsEquipped: Record<number, Partial<Record<CosmeticSlot, string>>>;
   /** identifiants des épreuves de carrière réussies */
   careerPassed: string[];
+  /** true une fois le rééquilibrage du barème des poubelles (÷10) appliqué à cette sauvegarde */
+  scoreScaleFixed: boolean;
 }
 
 const KEY = 'nightrush.v1';
@@ -59,6 +61,7 @@ const DEFAULTS: SaveData = {
   cosmeticsOwned: defaultOwned(),
   cosmeticsEquipped: {},
   careerPassed: [],
+  scoreScaleFixed: true,
 };
 
 /** migration v1 → v2 : les améliorations étaient globales (partagées par les 3 voitures) ; on les rapatrie sur VIPER (voiture 0). */
@@ -80,16 +83,21 @@ function load(): SaveData {
     if (!d.records && (d.bestRace != null || d.bestLap != null)) {
       records.downtown = { race: d.bestRace ?? null, lap: d.bestLap ?? null, air: null };
     }
+    // rééquilibrage du barème des poubelles (1000 → 100 par poubelle) : on divise par 10
+    // le record déjà enregistré pour qu'il reste un objectif crédible, une seule fois.
+    const scoreScaleFixed = d.scoreScaleFixed ?? false;
+    const bestScore = d.bestScore ?? 0;
     return {
       records,
       champWins: d.champWins ?? 0,
-      bestScore: d.bestScore ?? 0,
+      bestScore: scoreScaleFixed ? bestScore : Math.round(bestScore / 10),
       wallet: d.wallet ?? DEFAULTS.wallet,
       upgrades: migrateUpgrades(d.upgrades),
       settings: { ...DEFAULTS.settings, ...(d.settings ?? {}) },
       cosmeticsOwned: mergeOwned(d.cosmeticsOwned),
       cosmeticsEquipped: d.cosmeticsEquipped ?? {},
       careerPassed: d.careerPassed ?? [],
+      scoreScaleFixed: true,
     };
   } catch {
     return structuredClone(DEFAULTS);

@@ -24,6 +24,7 @@ import {
   PHYSICS,
   POLICE,
   RAMP,
+  RAMP_BONUS,
   RENDER,
   TRACK,
   TRAFFIC,
@@ -101,6 +102,8 @@ export class Game {
   private magnetRadius = 0;
   private magnetPull = 0;
   private magnetToast = 0;
+  /** > 0 : bonus tremplin « aimant à poubelles » temporaire en cours */
+  private bonusMagnetTimer = 0;
   /** accrochages depuis la dernière réapparition */
   private damage = 0;
   private damageCooldown = 0;
@@ -306,6 +309,7 @@ export class Game {
     this.binCount = 0;
     this.combo = 0;
     this.lastBinHit = -99;
+    this.bonusMagnetTimer = 0;
     this.wrecks = 0;
     this.damage = 0;
     this.damageCooldown = 0;
@@ -486,6 +490,11 @@ export class Game {
     // Tremplin → nitro (chaque seconde passée en l'air remplit la jauge)
     if (racing && player.y > 0) {
       player.nitro = Math.min(1, player.nitro + RAMP.nitroPerSecond * dt);
+    }
+    if (this.bonusMagnetTimer > 0) this.bonusMagnetTimer -= dt;
+    if (player.justLaunched) {
+      player.justLaunched = false;
+      if (racing) this.rollRampBonus();
     }
     if (player.justLanded) {
       player.justLanded = false;
@@ -741,13 +750,36 @@ export class Game {
     }
   }
 
+  /** Décollage d'un tremplin : un bonus aléatoire temporaire (parmi ceux pertinents). */
+  private rollRampBonus(): void {
+    const pool: ('police' | 'magnet' | 'nitro')[] = ['magnet', 'nitro'];
+    if (this.police.active && !this.police.wrecked) pool.push('police');
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (pick === 'police') {
+      this.police.reset();
+      this.hud.toast('BONUS TREMPLIN : POLICE SEMÉE !', '#3dff7a', 2);
+    } else if (pick === 'magnet') {
+      this.bonusMagnetTimer = RAMP_BONUS.magnetDuration;
+      this.hud.toast('BONUS TREMPLIN : AIMANT À POUBELLES !', '#ffd23f', 2);
+    } else {
+      this.player.freeBoost = RAMP_BONUS.nitroDuration;
+      this.hud.toast('BONUS TREMPLIN : BOOST NITRO !', '#2de2ff', 2);
+    }
+    this.sound.whoosh();
+    this.camera.shake(0.15);
+    vibrate(35);
+  }
+
   /** Poubelles : la voiture du joueur marque des points, l'IA les renverse gratuitement. */
   private hitBins(dt: number, racing: boolean): void {
     const p = this.player;
     for (const ai of this.ais) this.bins.collide(ai.x, ai.z, ai.h, ai.vx, ai.vz);
     if (this.police.active) this.bins.collide(this.police.x, this.police.z, this.police.h, this.police.vx, this.police.vz);
     if (this.state !== 'countdown') {
-      const pulled = this.bins.attract(p.x, p.z, p.vx, p.vz, p.h, this.magnetRadius, this.magnetPull, dt);
+      const bonusActive = this.bonusMagnetTimer > 0;
+      const radius = bonusActive ? Math.max(this.magnetRadius, RAMP_BONUS.magnetRadius) : this.magnetRadius;
+      const pull = bonusActive ? Math.max(this.magnetPull, RAMP_BONUS.magnetPull) : this.magnetPull;
+      const pulled = this.bins.attract(p.x, p.z, p.vx, p.vz, p.h, radius, pull, dt);
       this.magnetToast = Math.max(0, this.magnetToast - dt);
       if (pulled > 0 && racing && this.magnetToast === 0) {
         this.hud.toast('AIMANT ACTIF !', '#7dff6a');
@@ -764,7 +796,7 @@ export class Game {
       this.combo = now - this.lastBinHit < BINS.comboWindow ? Math.min(BINS.maxCombo, this.combo + 1) : 1;
       this.lastBinHit = now;
       if (!racing) continue; // après l'arrivée : ça vole toujours, mais ça ne compte plus
-      const pts = Math.round((BINS.points * this.magnetPoints * this.combo) / 10) * 10;
+      const pts = Math.round(BINS.points * this.magnetPoints * this.combo);
       this.score += pts;
       this.binCount++;
       this.hud.toast(this.combo > 1 ? `POUBELLE ! +${pts} ×${this.combo}` : `POUBELLE ! +${pts}`, '#7dff6a');
