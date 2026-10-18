@@ -87,7 +87,10 @@ export const CAREER: CareerTier[] = [
 export const CAR_UNLOCK: Record<string, string | null> = {
   viper: null,
   bolt: 'rookie',
+  ranger: 'rookie',
   drifter: 'confirme',
+  brute: 'pro',
+  apex: 'legende',
 };
 
 export interface CareerEventFlat extends CareerEvent {

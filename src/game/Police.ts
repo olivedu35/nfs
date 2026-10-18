@@ -30,7 +30,7 @@ export class Police extends RailBody {
 
   constructor(track: Track) {
     super(track);
-    this.mesh = createCarMesh(0xf2f2f2);
+    this.mesh = createCarMesh('muscle', 0xf2f2f2);
     const siren = createSirenLights();
     this.red = siren.red;
     this.blue = siren.blue;

@@ -15,7 +15,7 @@ export class TrafficCar extends RailBody {
 /** Voitures civiles lentes, rendues en InstancedMesh (3 draw calls). */
 export class Traffic {
   readonly cars: TrafficCar[] = [];
-  readonly meshes = createCarInstances(TRAFFIC.count);
+  readonly meshes = createCarInstances('hatch', TRAFFIC.count);
   private dummy = new Object3D();
 
   setTrack(track: Track): void {

@@ -41,9 +41,13 @@ export type CarCosmetics = Record<CosmeticSlot, string>;
 /** Apparence d'origine : toujours possédée, utilisée par défaut (IA, police…). */
 export const STOCK_COSMETICS: CarCosmetics = { spoiler: 'stock', exhaust: 'stock', sticker: 'none' };
 
+/** Silhouette 3D (voir CarModel.ts) : famille automobile générique à laquelle la voiture s'apparente. */
+export type CarArchetype = 'sport' | 'hatch' | 'drift' | 'super' | 'muscle' | 'truck';
+
 export interface CarSpec {
   id: string;
   name: string;
+  archetype: CarArchetype;
   color: number;
   maxSpeed: number; // m/s
   accel: number; // m/s²
@@ -54,12 +58,18 @@ export interface CarSpec {
 }
 
 export const CARS: CarSpec[] = [
-  { id: 'viper', name: 'VIPER', color: 0xff2d55, maxSpeed: 66, accel: 15, handling: 1.7, grip: 10,
-    stats: { speed: 1, accel: 0.55, handling: 0.55 } },
-  { id: 'bolt', name: 'BOLT', color: 0xffd23f, maxSpeed: 60, accel: 21, handling: 1.85, grip: 11,
-    stats: { speed: 0.75, accel: 1, handling: 0.7 } },
-  { id: 'drifter', name: 'DRIFTER', color: 0x2de2ff, maxSpeed: 61, accel: 17, handling: 2.15, grip: 12.5,
-    stats: { speed: 0.8, accel: 0.7, handling: 1 } },
+  { id: 'viper', name: 'VIPER', archetype: 'sport', color: 0xff2d55, maxSpeed: 66, accel: 15, handling: 1.7, grip: 10,
+    stats: { speed: 0.85, accel: 0.55, handling: 0.55 } },
+  { id: 'bolt', name: 'BOLT', archetype: 'hatch', color: 0xffd23f, maxSpeed: 60, accel: 21, handling: 1.85, grip: 11,
+    stats: { speed: 0.72, accel: 1, handling: 0.7 } },
+  { id: 'drifter', name: 'DRIFTER', archetype: 'drift', color: 0x2de2ff, maxSpeed: 61, accel: 17, handling: 2.15, grip: 12.5,
+    stats: { speed: 0.76, accel: 0.7, handling: 1 } },
+  { id: 'apex', name: 'APEX', archetype: 'super', color: 0x9d4edd, maxSpeed: 70, accel: 14, handling: 1.55, grip: 9,
+    stats: { speed: 1, accel: 0.45, handling: 0.4 } },
+  { id: 'brute', name: 'BRUTE', archetype: 'muscle', color: 0xff6a2d, maxSpeed: 64, accel: 23, handling: 1.5, grip: 9.5,
+    stats: { speed: 0.82, accel: 1, handling: 0.35 } },
+  { id: 'ranger', name: 'RANGER', archetype: 'truck', color: 0x8a9a5a, maxSpeed: 54, accel: 14, handling: 1.6, grip: 13.5,
+    stats: { speed: 0.6, accel: 0.45, handling: 0.75 } },
 ];
 
 export const PHYSICS = {
@@ -121,6 +131,7 @@ export const AI = {
   count: 3,
   names: ['RAZOR', 'NOVA', 'GHOST'],
   colors: [0x9b5cff, 0x3dff7a, 0xff8c2d],
+  archetypes: ['super', 'hatch', 'drift'] as CarArchetype[],
   skill: [0.97, 0.94, 0.91], // fraction de la vitesse max de référence
   refMaxSpeed: 62,
   accel: 15,

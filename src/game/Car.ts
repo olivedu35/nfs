@@ -53,7 +53,7 @@ export class Car {
   readonly mesh: Group;
 
   constructor(public spec: CarSpec) {
-    this.mesh = createCarMesh(spec.color, spec.cosmetics);
+    this.mesh = createCarMesh(spec.archetype, spec.color, spec.cosmetics);
   }
 
   get speed(): number {

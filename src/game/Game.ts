@@ -181,7 +181,7 @@ export class Game {
     this.player = new Car(CARS[0]);
     this.scene.add(this.player.mesh);
     for (let i = 0; i < AI.count; i++) {
-      const ai = new AIDriver(this.track, AI.names[i], AI.colors[i], AI.skill[i]);
+      const ai = new AIDriver(this.track, AI.names[i], AI.colors[i], AI.skill[i], AI.archetypes[i]);
       this.ais.push(ai);
       this.scene.add(ai.mesh);
     }

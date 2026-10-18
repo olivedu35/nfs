@@ -1,5 +1,5 @@
 import { Group } from 'three';
-import { AI, TRACK } from '../config';
+import { AI, CarArchetype, TRACK } from '../config';
 import { createCarMesh } from './CarModel';
 import { RailBody } from './Rail';
 import { clamp, damp } from './rng';
@@ -27,9 +27,10 @@ export class AIDriver extends RailBody {
     public name: string,
     color: number,
     private skill: number,
+    archetype: CarArchetype,
   ) {
     super(track);
-    this.mesh = createCarMesh(color);
+    this.mesh = createCarMesh(archetype, color);
     this.phase = Math.random() * 100;
   }
 
