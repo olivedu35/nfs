@@ -225,6 +225,17 @@ button.big {
   opacity: 0.7;
 }
 
+.car.locked {
+  opacity: 0.55;
+}
+
+.car .lock {
+  margin-top: 2px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--gold);
+}
+
 .stat {
   height: 5px;
   background: rgba(255, 255, 255, 0.15);
@@ -496,6 +507,108 @@ button.big {
 .earn {
   color: #7dff6a;
   font-weight: 800;
+}
+
+.fail {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* ---------------------------------------------------------------- carrière */
+.career {
+  gap: 16px;
+  justify-content: flex-start;
+}
+
+.career-rank {
+  font-size: 1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.career-rank b {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.career-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(100%, 680px);
+}
+
+.career-tier {
+  text-align: left;
+}
+
+.career-tier.cleared .career-tier-head b {
+  color: #7dff6a;
+}
+
+.career-tier-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.career-tier-head b {
+  font-size: 1rem;
+  font-style: italic;
+  letter-spacing: 0.06em;
+}
+
+.career-tier-head small {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.career-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.career-card {
+  --c: #fff;
+  width: clamp(130px, 22vw, 170px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 10px;
+  text-align: left;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.career-card b {
+  font-style: italic;
+  color: var(--c);
+}
+
+.career-card small {
+  font-size: 0.62rem;
+  opacity: 0.8;
+}
+
+.career-card .status {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.career-card.done {
+  border-color: #7dff6a;
+}
+
+.career-card.done .status {
+  color: #7dff6a;
+}
+
+.career-card.locked {
+  opacity: 0.45;
 }
 
 /* ---------------------------------------------------------------- personnalisation */

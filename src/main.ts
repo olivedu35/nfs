@@ -2,6 +2,15 @@ import './style.css';
 import { registerSW } from 'virtual:pwa-register';
 import { CARS, COSMETIC_SLOTS, COSMETICS, CosmeticSlot, UPGRADES, UPGRADE_COSTS, UpgradeId } from './config';
 import { CHAMP_BONUS, CHAMP_POINTS, Championship } from './game/Championship';
+import {
+  CAR_UNLOCK,
+  CAREER,
+  CAREER_FLAT,
+  CareerEventFlat,
+  careerEvent as findCareerEvent,
+  evaluateCareerEvent,
+  eventObjectiveText,
+} from './game/Career';
 import { Game, RaceResult } from './game/Game';
 import { TRACKS, TrackDef, trackById, trackSvg } from './game/tracks';
 import { GyroControls } from './input/GyroControls';
@@ -120,6 +129,7 @@ function boot(): void {
         <button class="shop-btn cust-btn">PERSO ▶</button>
         <button class="big go">COURSE ▶</button>
         <button class="big champ-btn">CHAMPIONNAT ★</button>
+        <button class="big career-btn">CARRIÈRE ▶</button>
       </div>
       <div class="note" hidden></div>
     </div>`);
@@ -128,6 +138,7 @@ function boot(): void {
   const bar = (v: number): string => `<div class="stat"><i style="width:${Math.round(v * 100)}%"></i></div>`;
   CARS.forEach((c, i) => {
     const hex = `#${c.color.toString(16).padStart(6, '0')}`;
+    const reqTier = CAR_UNLOCK[c.id] ? CAREER.find((t) => t.id === CAR_UNLOCK[c.id]) : null;
     carsEl.appendChild(
       h(`<button class="car" data-i="${i}" style="--c:${hex}">
         <div class="swatch"></div>
@@ -135,6 +146,7 @@ function boot(): void {
         <label>VITESSE</label>${bar(c.stats.speed)}
         <label>ACCÉL.</label>${bar(c.stats.accel)}
         <label>MANIA.</label>${bar(c.stats.handling)}
+        ${reqTier ? `<div class="lock">🔒 CARRIÈRE : ${reqTier.name}</div>` : ''}
       </button>`),
     );
   });
@@ -143,7 +155,10 @@ function boot(): void {
   const refreshGarage = (): void => {
     const s = Save.settings;
     carsEl.querySelectorAll<HTMLElement>('.car').forEach((el) => {
+      const unlocked = Save.isCarUnlocked(CARS[Number(el.dataset.i)].id);
       el.classList.toggle('sel', Number(el.dataset.i) === s.car);
+      el.classList.toggle('locked', !unlocked);
+      (el as HTMLButtonElement).disabled = !unlocked;
     });
     garage.querySelectorAll<HTMLElement>('.seg button').forEach((b) => {
       b.classList.toggle('sel', b.dataset.v === s.control);
@@ -155,13 +170,13 @@ function boot(): void {
     (garage.querySelector('.wallet-n') as HTMLElement).textContent = fmt(Save.wallet);
     refreshFullscreenUi();
     (garage.querySelector('.records') as HTMLElement).innerHTML =
-      `RECORD POUBELLES <b>${fmt(Save.bestScore)}</b><br>TITRES DE CHAMPION <b>${Save.champWins}</b>`;
+      `RANG <b>${Save.careerTitle()}</b><br>RECORD POUBELLES <b>${fmt(Save.bestScore)}</b><br>TITRES DE CHAMPION <b>${Save.champWins}</b>`;
     game.applySettings(s);
   };
 
   carsEl.addEventListener('click', (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('.car');
-    if (!el) return;
+    const el = (e.target as HTMLElement).closest<HTMLButtonElement>('.car');
+    if (!el || el.disabled) return;
     Save.setSettings({ car: Number(el.dataset.i) });
     refreshGarage();
   });
@@ -392,6 +407,7 @@ function boot(): void {
     const card = target.closest<HTMLElement>('.track-card');
     if (!card) return;
     champ.stop();
+    activeCareerEvent = null;
     lastTrack = trackById(card.dataset.id!);
     startRace(lastTrack);
   });
@@ -414,6 +430,7 @@ function boot(): void {
       refreshGarage();
       show(garage);
     } else if (a === 'go') {
+      activeCareerEvent = null;
       champ.start();
       startChampRound();
     }
@@ -441,6 +458,63 @@ function boot(): void {
     } else if (a === 'shop') openShop(garage);
   });
 
+  // Carrière : paliers d'épreuves séquentielles (course ou score), primes et déblocages de voitures
+  let activeCareerEvent: CareerEventFlat | null = null;
+  const career = h(`<div class="screen overlay career" hidden>
+      <div class="shop-head"><button data-a="back">◀ GARAGE</button><h2>CARRIÈRE</h2></div>
+      <div class="career-rank"></div>
+      <div class="career-tiers"></div>
+    </div>`);
+  ui.appendChild(career);
+  const refreshCareer = (): void => {
+    (career.querySelector('.career-rank') as HTMLElement).innerHTML = `RANG ACTUEL <b>${Save.careerTitle()}</b>`;
+    const nextId = CAREER_FLAT.find((e) => !Save.isCareerEventPassed(e.id))?.id;
+    (career.querySelector('.career-tiers') as HTMLElement).innerHTML = CAREER.map((tier) => {
+      const cleared = Save.careerTierCleared(tier.id);
+      const cards = tier.events
+        .map((ev) => {
+          const passed = Save.isCareerEventPassed(ev.id);
+          const unlocked = passed || ev.id === nextId;
+          const track = trackById(ev.trackId);
+          const strip = `#${track.theme.strip.toString(16).padStart(6, '0')}`;
+          const status = passed ? '✓ RÉUSSIE' : unlocked ? 'À JOUER' : '🔒 VERROUILLÉE';
+          return `<button class="career-card ${passed ? 'done' : ''} ${unlocked ? '' : 'locked'}" data-id="${ev.id}" style="--c:${strip}" ${unlocked ? '' : 'disabled'}>
+            <b>${track.name}</b>
+            <small>${eventObjectiveText(ev)} · +${fmt(ev.reward)} PTS</small>
+            <span class="status">${status}</span>
+          </button>`;
+        })
+        .join('');
+      const unlockLine = tier.unlockCarId
+        ? `<small>DÉBLOQUE ${CARS.find((c) => c.id === tier.unlockCarId)?.name} + ${fmt(tier.tierBonus)} PTS</small>`
+        : `<small>PRIME DE PALIER +${fmt(tier.tierBonus)} PTS</small>`;
+      return `<div class="career-tier ${cleared ? 'cleared' : ''}">
+        <div class="career-tier-head"><b>${tier.name}</b>${unlockLine}</div>
+        <div class="career-cards">${cards}</div>
+      </div>`;
+    }).join('');
+  };
+  career.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-a="back"]')) {
+      refreshGarage();
+      show(garage);
+      return;
+    }
+    const card = target.closest<HTMLButtonElement>('.career-card');
+    if (!card || card.disabled) return;
+    const ev = findCareerEvent(card.dataset.id!);
+    if (!ev) return;
+    activeCareerEvent = ev;
+    champ.stop();
+    lastTrack = trackById(ev.trackId);
+    startRace(lastTrack, `CARRIÈRE · ${CAREER[ev.tierIndex].name} · ${lastTrack.name}`);
+  });
+  garage.querySelector('.career-btn')!.addEventListener('click', () => {
+    refreshCareer();
+    show(career);
+  });
+
   // Pause
   const pause = h(`<div class="screen overlay pause-screen" hidden>
       <h2>PAUSE</h2>
@@ -462,6 +536,7 @@ function boot(): void {
       <div class="row">
         <button class="big" data-a="replay">REJOUER</button>
         <button class="big" data-a="next">MANCHE SUIVANTE ▶</button>
+        <button class="big" data-a="career" hidden>CARRIÈRE ▶</button>
         <button class="shop-btn" data-a="shop">BOUTIQUE</button>
         <button data-a="menu">GARAGE</button>
       </div>
@@ -469,7 +544,7 @@ function boot(): void {
   ui.appendChild(results);
 
   const show = (el: HTMLElement | null): void => {
-    for (const s of [title, garage, shop, customize, tracksel, champIntro, final, pause, results, fsHelp])
+    for (const s of [title, garage, shop, customize, tracksel, champIntro, career, final, pause, results, fsHelp])
       s.hidden = s !== el;
   };
 
@@ -534,6 +609,9 @@ function boot(): void {
         champ.next();
         startChampRound();
       }
+    } else if (a === 'career') {
+      refreshCareer();
+      show(career);
     } else if (a === 'shop') {
       openShop(results); // on peut dépenser entre deux manches
     } else if (a === 'menu') {
@@ -550,9 +628,33 @@ function boot(): void {
     t.textContent = r.busted ? 'BUSTED' : r.position === 1 ? 'VICTOIRE !' : `${r.position}e PLACE`;
     t.className = `res-title ${r.busted ? 'bad' : r.position === 1 ? 'gold' : ''}`;
     if (champ.active) champ.record(r);
+
+    // Carrière : évalue l'objectif, verse la prime (et celle de palier / déblocage) la première fois
+    let careerMsg = '';
+    if (activeCareerEvent) {
+      const ev = activeCareerEvent;
+      const pass = evaluateCareerEvent(ev, r);
+      if (pass && Save.recordCareerResult(ev.id)) {
+        Save.deposit(ev.reward);
+        let bonus = '';
+        const tier = CAREER[ev.tierIndex];
+        if (Save.careerTierCleared(tier.id)) {
+          Save.deposit(tier.tierBonus);
+          const carName = tier.unlockCarId ? CARS.find((c) => c.id === tier.unlockCarId)?.name : null;
+          bonus = ` · PALIER « ${tier.name} » TERMINÉ +${fmt(tier.tierBonus)} PTS${carName ? ` · ${carName} DÉBLOQUÉE !` : ''}`;
+        }
+        careerMsg = `<br><span class="earn">ÉPREUVE RÉUSSIE +${fmt(ev.reward)} PTS${bonus}</span>`;
+      } else if (pass) {
+        careerMsg = `<br><span class="earn">ÉPREUVE DÉJÀ VALIDÉE</span>`;
+      } else {
+        careerMsg = `<br><span class="fail">OBJECTIF CARRIÈRE NON ATTEINT (${eventObjectiveText(ev)}) — RÉESSAYEZ !</span>`;
+      }
+    }
     (results.querySelector('.res-sub') as HTMLElement).textContent = champ.active
       ? `CHAMPIONNAT · MANCHE ${champ.round + 1}/${champ.total} · ${r.trackName}`
-      : r.trackName;
+      : activeCareerEvent
+        ? `CARRIÈRE · ${CAREER[activeCareerEvent.tierIndex].name} · ${r.trackName}`
+        : r.trackName;
     (results.querySelector('.race-table') as HTMLElement).innerHTML = r.standings
       .map(
         (s, i) => `<tr class="${s.player ? 'me' : ''}">
@@ -580,10 +682,11 @@ function boot(): void {
     const nextBtn = results.querySelector('[data-a="next"]') as HTMLElement;
     nextBtn.hidden = !champ.active;
     nextBtn.textContent = champ.isLastRound ? 'PODIUM ▶' : 'MANCHE SUIVANTE ▶';
+    (results.querySelector('[data-a="career"]') as HTMLElement).hidden = !activeCareerEvent;
     const binsLine =
       `POUBELLES <b>${r.bins}</b>${r.wrecks ? ` · POLICES KO <b>${r.wrecks}</b>` : ''}` +
       ` · SCORE <b>${fmt(r.score)}</b>${r.scoreRecord ? ' <em>RECORD !</em>' : ''}` +
-      `<br><span class="earn">+${fmt(r.score)} PTS → PORTEFEUILLE ${fmt(r.wallet)} PTS</span>`;
+      `<br><span class="earn">+${fmt(r.score)} PTS → PORTEFEUILLE ${fmt(Save.wallet)} PTS</span>${careerMsg}`;
     (results.querySelector('.res-info') as HTMLElement).innerHTML = r.busted
       ? `Astuce : percutez la police 3 fois à 50 km/h ou plus pour la détruire !<br>${binsLine}`
       : `TEMPS <b>${formatTime(r.time)}</b>${r.record.race ? ' <em>RECORD !</em>' : ''}

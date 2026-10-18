@@ -1,4 +1,5 @@
 import { COSMETICS, CosmeticSlot, UPGRADE_COSTS, UpgradeId } from '../config';
+import { CAR_UNLOCK, CAREER, currentTierIndex, tierCleared } from '../game/Career';
 
 export type ControlMode = 'buttons' | 'gyro';
 
@@ -26,6 +27,8 @@ interface SaveData {
   cosmeticsOwned: Record<CosmeticSlot, string[]>;
   /** esthétique équipée, par voiture (index dans CARS) puis par catégorie */
   cosmeticsEquipped: Record<number, Partial<Record<CosmeticSlot, string>>>;
+  /** identifiants des épreuves de carrière réussies */
+  careerPassed: string[];
 }
 
 const KEY = 'nightrush.v1';
@@ -54,6 +57,7 @@ const DEFAULTS: SaveData = {
   settings: { control: 'buttons', sound: true, gyroInvert: false, car: 0 },
   cosmeticsOwned: defaultOwned(),
   cosmeticsEquipped: {},
+  careerPassed: [],
 };
 
 function load(): SaveData {
@@ -75,6 +79,7 @@ function load(): SaveData {
       settings: { ...DEFAULTS.settings, ...(d.settings ?? {}) },
       cosmeticsOwned: mergeOwned(d.cosmeticsOwned),
       cosmeticsEquipped: d.cosmeticsEquipped ?? {},
+      careerPassed: d.careerPassed ?? [],
     };
   } catch {
     return structuredClone(DEFAULTS);
@@ -194,6 +199,31 @@ export const Save = {
   equipCosmetic(car: number, slot: CosmeticSlot, id: string): void {
     (data.cosmeticsEquipped[car] ??= {})[slot] = id;
     persist();
+  },
+  isCareerEventPassed(id: string): boolean {
+    return data.careerPassed.includes(id);
+  },
+  /** Valide une épreuve de carrière. Renvoie true seulement la première fois (pour la prime/l'annonce). */
+  recordCareerResult(id: string): boolean {
+    if (data.careerPassed.includes(id)) return false;
+    data.careerPassed.push(id);
+    persist();
+    return true;
+  },
+  /** Palier actuel (le premier non entièrement validé, sinon le dernier). */
+  careerTierIndex(): number {
+    return currentTierIndex(data.careerPassed);
+  },
+  careerTierCleared(tierId: string): boolean {
+    const tier = CAREER.find((t) => t.id === tierId);
+    return !!tier && tierCleared(tier, data.careerPassed);
+  },
+  careerTitle(): string {
+    return CAREER[this.careerTierIndex()].title;
+  },
+  isCarUnlocked(carId: string): boolean {
+    const req = CAR_UNLOCK[carId];
+    return req == null || this.careerTierCleared(req);
   },
 };
 
